@@ -176,12 +176,12 @@ h2 {
 }
 .cls-row {
   display: flex; gap: 8px; justify-content: center; flex-wrap: nowrap;
-  max-width: 100%; overflow-x: auto;
+  padding: 6px 0 2px;               /* room for the hover lift + glow (no clipping) */
 }
 .cls-card {
   --c: var(--cyan);
   display: flex; flex-direction: column; align-items: center;
-  flex: 0 0 auto; width: 80px; padding: 7px 4px 8px; cursor: pointer;
+  flex: 0 0 auto; width: 84px; padding: 7px 3px 8px; cursor: pointer; overflow: visible;
   background: rgba(10, 16, 30, 0.55);
   border: 1px solid rgba(90, 160, 230, 0.16);
   border-radius: 13px;
@@ -197,10 +197,11 @@ h2 {
 .cls-art svg { display: block; }
 .cls-name {
   font-family: var(--font-display, inherit);
-  font-size: 11px; letter-spacing: .5px; color: var(--ink); margin-top: 2px;
+  font-size: 10px; letter-spacing: 0; color: var(--ink); margin-top: 2px;
+  max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: clip;
 }
 .cls-card.sel .cls-name { color: var(--c); }
-.cls-role { font-size: 9px; letter-spacing: .5px; color: var(--ink-dim); margin-top: 1px; }
+.cls-role { font-size: 8.5px; letter-spacing: 0; color: var(--ink-dim); margin-top: 1px; white-space: nowrap; }
 
 .stage-reached { color: #7dffa8; font-weight: 700; letter-spacing: 2px; margin: -6px 0 12px; }
 

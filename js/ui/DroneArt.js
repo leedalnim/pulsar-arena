@@ -24,98 +24,138 @@ import { TAU, rgba } from '../core/utils.js';
 export function drawDrone(ctx, cls, color, radius, facing, t = 0) {
   const R = radius;
   const accent = cls.accent || color;
+  const eye = cls.eye || accent;
+  const pulse = 0.85 + 0.15 * Math.sin(t / 180);
   ctx.save();
-  ctx.rotate(facing + Math.PI / 2);       // nose (−Y) aligns with facing
+  ctx.rotate(facing + Math.PI / 2);       // the drone's face (−Y) points along facing
 
-  // Side thruster pods.
+  // Back thruster pods.
   for (const sx of [-1, 1]) {
     ctx.beginPath();
-    ctx.arc(sx * R * 0.95, R * 0.55, R * 0.26, 0, TAU);
+    ctx.arc(sx * R * 0.82, R * 0.74, R * 0.22, 0, TAU);
     ctx.fillStyle = '#9fb3d0';
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(sx * R * 0.95, R * 0.55, R * 0.12, 0, TAU);
+    ctx.arc(sx * R * 0.82, R * 0.74, R * 0.1, 0, TAU);
     ctx.fillStyle = color;
-    ctx.shadowColor = color; ctx.shadowBlur = 8;
+    ctx.shadowColor = color; ctx.shadowBlur = 7;
     ctx.fill(); ctx.shadowBlur = 0;
   }
 
-  // Shared round hull.
+  // Class accessory above the head (halo / horns / ears / antenna).
+  ctx.save();
+  ctx.strokeStyle = rgba(accent, 0.95);
+  ctx.fillStyle = rgba(accent, 0.95);
+  ctx.lineWidth = Math.max(1.4, R * 0.1);
+  ctx.lineCap = 'round';
+  if (cls.shape === 'chevron') {            // NOVA — horns
+    ctx.beginPath();
+    ctx.moveTo(-R * 0.42, -R * 0.95); ctx.lineTo(-R * 0.72, -R * 1.5);
+    ctx.moveTo(R * 0.42, -R * 0.95); ctx.lineTo(R * 0.72, -R * 1.5);
+    ctx.stroke();
+  } else if (cls.shape === 'teardrop') {    // PHANTOM — ears
+    ctx.beginPath();
+    ctx.moveTo(-R * 0.5, -R * 0.9); ctx.lineTo(-R * 0.58, -R * 1.45);
+    ctx.moveTo(R * 0.5, -R * 0.9); ctx.lineTo(R * 0.58, -R * 1.45);
+    ctx.stroke();
+  } else if (cls.shape === 'armored') {     // GUARDIAN — antenna
+    ctx.beginPath();
+    ctx.moveTo(0, -R * 1.1); ctx.lineTo(0, -R * 1.5);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, -R * 1.6, R * 0.15, 0, TAU);
+    ctx.fill();
+  } else {                                  // SPECTER — halo
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineWidth = Math.max(1.4, R * 0.09);
+    ctx.beginPath();
+    ctx.ellipse(0, -R * 1.42, R * 0.6, R * 0.22, 0, 0, TAU);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Rounded body hull, faction-tinted.
   ctx.beginPath();
-  ctx.moveTo(0, -R * 1.25);
-  ctx.quadraticCurveTo(R * 1.05, -R * 1.05, R * 1.05, 0);
-  ctx.quadraticCurveTo(R * 1.05, R * 1.15, 0, R * 1.25);
-  ctx.quadraticCurveTo(-R * 1.05, R * 1.15, -R * 1.05, 0);
-  ctx.quadraticCurveTo(-R * 1.05, -R * 1.05, 0, -R * 1.25);
+  ctx.moveTo(0, -R * 1.12);
+  ctx.quadraticCurveTo(R, -R, R, 0);
+  ctx.quadraticCurveTo(R, R * 1.05, 0, R * 1.15);
+  ctx.quadraticCurveTo(-R, R * 1.05, -R, 0);
+  ctx.quadraticCurveTo(-R, -R, 0, -R * 1.12);
   ctx.closePath();
-  const g = ctx.createRadialGradient(-R * 0.35, -R * 0.45, R * 0.2, 0, 0, R * 1.8);
+  const g = ctx.createRadialGradient(-R * 0.32, -R * 0.5, R * 0.2, 0, 0, R * 1.7);
   g.addColorStop(0, '#f4f8ff');
   g.addColorStop(0.5, color);
   g.addColorStop(1, '#182740');
   ctx.fillStyle = g;
   ctx.fill();
   ctx.strokeStyle = rgba(accent, 0.9);
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 1.4;
   ctx.stroke();
 
   // Specular highlight.
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   ctx.beginPath();
-  ctx.arc(-R * 0.32, -R * 0.5, R * 0.4, 0, TAU);
-  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.arc(-R * 0.3, -R * 0.55, R * 0.34, 0, TAU);
+  ctx.fillStyle = 'rgba(255,255,255,0.28)';
   ctx.fill();
   ctx.restore();
 
-  // Class accessory marker at the "top" of the head (−Y) so class reads in-game.
+  // Dark visor band near the front, with the class eyes (matches the portrait).
+  ctx.beginPath();
+  ctx.moveTo(-R * 0.62, -R * 0.5);
+  ctx.quadraticCurveTo(0, -R * 0.8, R * 0.62, -R * 0.5);
+  ctx.quadraticCurveTo(R * 0.5, -R * 0.18, 0, -R * 0.14);
+  ctx.quadraticCurveTo(-R * 0.5, -R * 0.18, -R * 0.62, -R * 0.5);
+  ctx.closePath();
+  ctx.fillStyle = '#08111c';
+  ctx.fill();
+  ctx.strokeStyle = rgba(accent, 0.5);
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
   ctx.save();
-  ctx.strokeStyle = rgba(accent, 0.95);
-  ctx.fillStyle = rgba(accent, 0.95);
-  ctx.lineWidth = Math.max(1.5, R * 0.11);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = eye;
+  ctx.strokeStyle = eye;
+  ctx.shadowColor = eye; ctx.shadowBlur = 6;
   ctx.lineCap = 'round';
-  if (cls.shape === 'chevron') {            // NOVA — two horn ticks
+  if (cls.shape === 'chevron') {            // sharp slanted eyes
+    ctx.lineWidth = R * 0.13;
     ctx.beginPath();
-    ctx.moveTo(-R * 0.5, -R * 1.05); ctx.lineTo(-R * 0.8, -R * 1.6);
-    ctx.moveTo(R * 0.5, -R * 1.05); ctx.lineTo(R * 0.8, -R * 1.6);
+    ctx.moveTo(-R * 0.42, -R * 0.32); ctx.lineTo(-R * 0.16, -R * 0.42);
+    ctx.moveTo(R * 0.42, -R * 0.32); ctx.lineTo(R * 0.16, -R * 0.42);
     ctx.stroke();
-  } else if (cls.shape === 'teardrop') {    // PHANTOM — two ear ticks
+  } else if (cls.shape === 'teardrop') {    // narrow slit eyes
+    ctx.lineWidth = R * 0.1;
     ctx.beginPath();
-    ctx.moveTo(-R * 0.55, -R * 1.0); ctx.lineTo(-R * 0.62, -R * 1.5);
-    ctx.moveTo(R * 0.55, -R * 1.0); ctx.lineTo(R * 0.62, -R * 1.5);
+    ctx.moveTo(-R * 0.4, -R * 0.4); ctx.lineTo(-R * 0.16, -R * 0.38);
+    ctx.moveTo(R * 0.4, -R * 0.4); ctx.lineTo(R * 0.16, -R * 0.38);
     ctx.stroke();
-  } else if (cls.shape === 'armored') {     // GUARDIAN — antenna dot
+  } else if (cls.shape === 'armored') {     // one wide visor eye
+    ctx.lineWidth = R * 0.16;
     ctx.beginPath();
-    ctx.moveTo(0, -R * 1.2); ctx.lineTo(0, -R * 1.6);
+    ctx.moveTo(-R * 0.32, -R * 0.4); ctx.lineTo(R * 0.32, -R * 0.4);
     ctx.stroke();
+  } else {                                  // two round eyes
     ctx.beginPath();
-    ctx.arc(0, -R * 1.7, R * 0.16, 0, TAU);
+    ctx.arc(-R * 0.26, -R * 0.42, R * 0.11, 0, TAU);
+    ctx.arc(R * 0.26, -R * 0.42, R * 0.11, 0, TAU);
     ctx.fill();
-  } else {                                  // SPECTER — halo ring
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.lineWidth = Math.max(1.5, R * 0.1);
-    ctx.beginPath();
-    ctx.ellipse(0, -R * 1.55, R * 0.7, R * 0.26, 0, 0, TAU);
-    ctx.stroke();
   }
   ctx.restore();
 
-  // Emissive core.
-  const pulse = 0.85 + 0.15 * Math.sin(t / 180);
+  // Chest core glow.
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  const cr = R * 0.9 * pulse;
-  const cg = ctx.createRadialGradient(0, R * 0.05, 0, 0, R * 0.05, cr);
+  const cr = R * 0.68 * pulse;
+  const cg = ctx.createRadialGradient(0, R * 0.3, 0, 0, R * 0.3, cr);
   cg.addColorStop(0, '#ffffff');
   cg.addColorStop(0.4, color);
   cg.addColorStop(1, rgba(color, 0));
   ctx.fillStyle = cg;
   ctx.beginPath();
-  ctx.arc(0, R * 0.05, cr, 0, TAU);
-  ctx.fill();
-  // Nose glow.
-  ctx.beginPath();
-  ctx.arc(0, -R * 1.05, R * 0.22, 0, TAU);
-  ctx.fillStyle = rgba(accent, 0.9);
+  ctx.arc(0, R * 0.3, cr, 0, TAU);
   ctx.fill();
   ctx.restore();
 
