@@ -105,6 +105,7 @@ export class Menu {
       </div>
       <p class="howto-note">${T.howtoNote1}</p>
       <p class="howto-note">${T.howtoNote2}</p>
+      <p class="howto-note">${T.p2Hint}</p>
       <div class="btn-col">
         <button class="btn btn-primary" data-act="back">${T.back}</button>
       </div>
@@ -131,6 +132,10 @@ export class Menu {
       <div class="setting row">
         <label>${T.screenShake}</label>
         <button class="toggle ${s.shake ? 'on' : ''}" data-set="shake">${s.shake ? T.on : T.off}</button>
+      </div>
+      <div class="setting row">
+        <label>${T.local2p}</label>
+        <button class="toggle ${s.coop ? 'on' : ''}" data-set="coop">${s.coop ? T.on : T.off}</button>
       </div>
       <div class="setting">
         <label>${T.opponentBots} <output>${s.botCount}</output></label>

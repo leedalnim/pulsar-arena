@@ -49,6 +49,11 @@ npm test      # headless smoke test
 | Cycle core type | `Q` | ⟳ button |
 | Pause | `Esc` / `P` | (pause via menu) |
 
+**Local 2-player** — enable *Local 2-Player* in Settings. Player 1 uses `WASD`
+(+ `Space` / `Shift` / `E` / `Q`); Player 2 uses the **arrow keys** (+ `Enter`
+deploy, `/` dash, `'` shield, `.` cycle). The camera frames both, and bots fill
+the remaining slots.
+
 ---
 
 ## Gameplay systems

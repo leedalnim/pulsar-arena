@@ -56,6 +56,8 @@ export class Game {
     this._itemAcc = 0;        // item spawn accumulator
 
     this.localPlayer = null;
+    this.humans = [];         // 1 (solo) or 2 (local coop) human players
+    this.coop = false;
     this.grid = null;
     this.territory = null;
     this.timeLeft = 0;
@@ -73,8 +75,11 @@ export class Game {
 
   /** Build a fresh arena and spawn all combatants. */
   newMatch() {
+    this.coop = !!this.settings.coop;
+    this.input.setCoop(this.coop);
+    const humanCount = this.coop ? 2 : 1;
     const botCount = Math.min(3, Math.max(1, this.settings.botCount));
-    const factionCount = botCount + 1;
+    const factionCount = Math.min(4, humanCount + botCount);
 
     this.theme = THEMES[pick(THEME_ORDER)];
     const { grid, spawns } = MapGenerator.generate(factionCount, this.theme);
@@ -91,13 +96,21 @@ export class Game {
     this._itemAcc = 0;
     this.particles.clear();
 
-    // Human is faction 0 with the chosen class; bots get varied classes.
+    // Human(s) first; bots fill the rest. In coop, P2 gets a different class.
+    this.humans = [];
     const humanClass = this.settings.charClass || 'specter';
     this.localPlayer = new Player(spawns[0].x, spawns[0].y, this.factions[0], 0, true, humanClass);
     this.players.push(this.localPlayer);
-    const botClasses = shuffle(CLASS_ORDER.filter((c) => c !== humanClass).concat(CLASS_ORDER));
-    for (let i = 1; i < factionCount; i++) {
-      this.players.push(new Bot(spawns[i].x, spawns[i].y, this.factions[i], i, botClasses[i - 1]));
+    this.humans.push(this.localPlayer);
+    if (this.coop) {
+      const p2class = CLASS_ORDER.find((c) => c !== humanClass) || 'nova';
+      const p2 = new Player(spawns[1].x, spawns[1].y, this.factions[1], 1, true, p2class);
+      this.players.push(p2);
+      this.humans.push(p2);
+    }
+    const botClasses = shuffle(CLASS_ORDER.concat(CLASS_ORDER));
+    for (let i = humanCount; i < factionCount; i++) {
+      this.players.push(new Bot(spawns[i].x, spawns[i].y, this.factions[i], i, botClasses[i]));
     }
 
     // Seed each spawn with owned territory so scores start non-zero.
@@ -111,7 +124,16 @@ export class Game {
     this.timeLeft = this.settings.duration;
     this.camera.resize(this.viewW, this.viewH);
     this.camera.shakeEnabled = this.settings.shake;
-    this.camera.snapTo(this.localPlayer.x, this.localPlayer.y);
+    const mid = this._humansMid();
+    this.camera.snapTo(mid.x, mid.y);
+  }
+
+  /** Centre point of the human player(s) — the camera focus. */
+  _humansMid() {
+    const hs = this.humans && this.humans.length ? this.humans : [this.localPlayer];
+    let x = 0, y = 0, n = 0;
+    for (const p of hs) { if (!p) continue; x += p.x; y += p.y; n++; }
+    return n ? { x: x / n, y: y / n } : { x: 0, y: 0 };
   }
 
   start() {
@@ -173,6 +195,7 @@ export class Game {
     const actions = this.input.poll();
     if (actions.pause) { this.pause(); this.onPauseRequested?.(); return; }
     if (this.localPlayer) this.localPlayer.applyIntent(actions);
+    if (this.coop && this.humans[1]) this.humans[1].applyIntent(this.input.poll2());
 
     // Entities.
     for (const p of this.players) p.update(dt, this);
@@ -190,9 +213,9 @@ export class Game {
     this.territory.update(dt);
     this.particles.update(dt);
 
-    // Camera + timer.
-    this.camera.follow(this.localPlayer.x, this.localPlayer.y,
-      this.grid.worldW, this.grid.worldH, dt);
+    // Camera follows the human(s) midpoint (frames both in coop) + timer.
+    const mid = this._humansMid();
+    this.camera.follow(mid.x, mid.y, this.grid.worldW, this.grid.worldH, dt);
     this.camera.update(dt);
 
     this.timeLeft -= dt;
@@ -350,7 +373,11 @@ export class Game {
   onTeleport(player) {
     this.particles.burst(player.x, player.y, '#c76bff', 26, 260);
     this.sound.teleport();
-    if (player.isHuman) this.camera.snapTo(player.x, player.y);
+    // Re-centre on the human focus (midpoint in coop) so the view keeps up.
+    if (player.isHuman) {
+      const mid = this._humansMid();
+      this.camera.snapTo(this.coop ? mid.x : player.x, this.coop ? mid.y : player.y);
+    }
   }
 
   /* ------------------------------- scoring ------------------------------- */

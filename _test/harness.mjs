@@ -58,7 +58,9 @@ const { Storage } = await import('../js/core/Storage.js');
 let scriptedIntent = { move: { x: 0, y: 0 }, deploy: false, dash: false, shield: false, cycle: false, pause: false };
 const input = {
   poll: () => ({ ...scriptedIntent, move: { ...scriptedIntent.move } }),
+  poll2: () => ({ move: { x: 0, y: 0 }, deploy: false, dash: false, shield: false, cycle: false }),
   setTouchVisible() {},
+  setCoop() {},
   flush() {},
 };
 
@@ -155,6 +157,20 @@ game.timeLeft = 0.1;
 game.update(0.2);
 console.assert(overCalled, 'game over should fire when time runs out');
 console.log('game over fired:', overCalled);
+
+// --- Local 2-player: two humans spawn and both are controllable ---
+const coopSettings = { ...Storage.load(), sfx: false, botCount: 3, duration: 30, coop: true };
+const coopGame = new Game(new CanvasStub(), coopSettings, sound, input, particles);
+coopGame.onGameOver = () => {};
+coopGame.onPauseRequested = () => {};
+coopGame.resize(1280, 720, 1);
+coopGame.start();
+const humans = coopGame.players.filter((p) => p.isHuman);
+console.assert(humans.length === 2, 'coop should spawn two human players');
+console.assert(coopGame.humans.length === 2, 'coop tracks two humans');
+console.assert(coopGame.players.length === 4, 'coop still fills to four factions');
+for (let i = 0; i < 60; i++) { coopGame.update(1 / 60); coopGame.render(); }
+console.log('local 2P humans:', humans.length, '| classes:', humans.map((h) => h.classId).join(', '));
 
 // Settings persistence round-trip.
 Storage.save({ ...settings, volume: 0.42 });
