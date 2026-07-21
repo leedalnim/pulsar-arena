@@ -128,24 +128,25 @@ export class Grid {
     const endR = Math.min(this.rows - 1, Math.ceil((cam.y + cam.viewH) / t));
     const th = this.theme;
 
+    // The floor is drawn FLAT (a recessed tiled ground) so it never reads as a
+    // raised block — only walls do. Tiles get a subtle tint plus inset seams.
     for (let r = startR; r <= endR; r++) {
       for (let c = startC; c <= endC; c++) {
         if (this.get(c, r) === TILE.WALL) continue;   // walls draw their own body
-        const x = c * t, y = r * t, pad = 2;
-        // Panel body: light top -> mid tint -> dark bottom for a soft bevel.
-        this._roundRect(ctx, x + pad, y + pad, t - pad * 2, t - pad * 2, 6);
-        const g = ctx.createLinearGradient(x, y, x, y + t);
-        g.addColorStop(0, th.floorEdge);
-        g.addColorStop(0.5, th.floorPanel);
-        g.addColorStop(1, 'rgba(0,0,0,0.12)');
-        ctx.fillStyle = g;
-        ctx.fill();
-        // Thin top highlight edge for the tech read.
-        ctx.beginPath();
-        ctx.moveTo(x + pad + 4, y + pad + 0.5);
-        ctx.lineTo(x + t - pad - 4, y + pad + 0.5);
-        ctx.strokeStyle = th.floorEdge;
+        const x = c * t, y = r * t;
+        ctx.fillStyle = th.floorPanel;
+        ctx.fillRect(x, y, t, t);
+        // Recessed seam: dark on top/left, faint light on bottom/right.
         ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(0,0,0,0.30)';
+        ctx.beginPath();
+        ctx.moveTo(x + 0.5, y); ctx.lineTo(x + 0.5, y + t);
+        ctx.moveTo(x, y + 0.5); ctx.lineTo(x + t, y + 0.5);
+        ctx.stroke();
+        ctx.strokeStyle = th.floorEdge;
+        ctx.beginPath();
+        ctx.moveTo(x + t - 0.5, y + 1); ctx.lineTo(x + t - 0.5, y + t);
+        ctx.moveTo(x + 1, y + t - 0.5); ctx.lineTo(x + t, y + t - 0.5);
         ctx.stroke();
       }
     }
@@ -170,17 +171,32 @@ export class Grid {
   }
 
   _drawWall(ctx, c, r, t) {
-    const x = c * t, y = r * t, pad = 3, rad = 10;
-    // Contact shadow onto the floor for depth.
-    shadowEllipse(ctx, x + t / 2, y + t - 4, t * 0.5, t * 0.18, 0.28);
+    const th = this.theme;
+    const x = c * t, y = r * t, pad = 2, rad = 8, lift = 6;
+    // Strong contact shadow so the block clearly floats above the flat floor.
+    shadowEllipse(ctx, x + t / 2, y + t - 1, t * 0.54, t * 0.22, 0.5);
+    // Height/side: a darker base filling the tile; its lower band shows below
+    // the raised top face, giving the wall obvious thickness.
     this._roundRect(ctx, x + pad, y + pad, t - pad * 2, t - pad * 2, rad);
-    const g = ctx.createLinearGradient(x, y, x, y + t);
-    g.addColorStop(0, this.theme.wallTop);
-    g.addColorStop(1, this.theme.wallBot);
+    ctx.fillStyle = th.wallBot;
+    ctx.fill();
+    // Raised top face, lifted up so the side band is visible beneath it.
+    this._roundRect(ctx, x + pad, y + pad - lift, t - pad * 2, t - pad * 2, rad);
+    const g = ctx.createLinearGradient(x, y - lift, x, y + t - lift);
+    g.addColorStop(0, th.wallTop);
+    g.addColorStop(1, th.wallBot);
     ctx.fillStyle = g;
     ctx.fill();
+    // Bright neon rim around the top face makes walls pop as solid obstacles.
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = th.wallEdge;
+    ctx.stroke();
+    // Top light strip for a bevelled, raised read.
+    ctx.beginPath();
+    ctx.moveTo(x + pad + 6, y + pad - lift + 3);
+    ctx.lineTo(x + t - pad - 6, y + pad - lift + 3);
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)';
     ctx.lineWidth = 1.5;
-    ctx.strokeStyle = this.theme.wallEdge;
     ctx.stroke();
   }
 
