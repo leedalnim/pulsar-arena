@@ -184,29 +184,71 @@ export class Grid {
     ctx.stroke();
   }
 
+  /**
+   * Destructible crystal tile drawn as an embedded ORE CLUSTER — a rocky base
+   * with several faceted mineral spires — so it reads as a mineable resource /
+   * cover, clearly distinct from the small floating collectible shards.
+   */
   _drawCrystal(ctx, c, r, t) {
     const cx = c * t + t / 2, cy = r * t + t / 2;
-    const pulse = 0.5 + 0.5 * Math.sin(this._pulse * 3 + (c + r));
-    const s = t * 0.30;
-    shadowEllipse(ctx, cx, cy + s * 0.9, s * 1.3, s * 0.5, 0.26);
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(Math.PI / 4);
-    // outer glow
-    ctx.shadowColor = 'rgba(120,240,255,0.9)';
-    ctx.shadowBlur = 12 + pulse * 10;
-    const g = ctx.createLinearGradient(-s, -s, s, s);
-    g.addColorStop(0, '#8ff6ff');
-    g.addColorStop(1, '#2aa9d8');
-    ctx.fillStyle = g;
-    this._roundRect(ctx, -s, -s, s * 2, s * 2, 5);
+    const pulse = 0.5 + 0.5 * Math.sin(this._pulse * 2.5 + (c + r));
+    const base = cy + t * 0.24;                 // crystals sit on this ground line
+    shadowEllipse(ctx, cx, base + 3, t * 0.34, t * 0.14, 0.3);
+
+    // Rocky mound the crystals grow out of.
+    ctx.beginPath();
+    ctx.moveTo(cx - t * 0.30, base + 2);
+    ctx.quadraticCurveTo(cx - t * 0.20, base - t * 0.10, cx, base - t * 0.06);
+    ctx.quadraticCurveTo(cx + t * 0.22, base - t * 0.10, cx + t * 0.30, base + 2);
+    ctx.closePath();
+    const rock = ctx.createLinearGradient(0, base - t * 0.14, 0, base + 4);
+    rock.addColorStop(0, '#2c3a4e');
+    rock.addColorStop(1, '#141c28');
+    ctx.fillStyle = rock;
     ctx.fill();
-    // inner facet
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = rgba('#ffffff', 0.35 + pulse * 0.3);
-    this._roundRect(ctx, -s * 0.45, -s * 0.45, s * 0.9, s * 0.9, 3);
+
+    // Ambient glow pooled at the base.
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const gl = ctx.createRadialGradient(cx, base - t * 0.06, 1, cx, base - t * 0.06, t * 0.34);
+    gl.addColorStop(0, rgba('#6fe8ff', 0.35 + pulse * 0.25));
+    gl.addColorStop(1, rgba('#6fe8ff', 0));
+    ctx.fillStyle = gl;
+    ctx.beginPath();
+    ctx.arc(cx, base - t * 0.06, t * 0.34, 0, TAU);
     ctx.fill();
     ctx.restore();
+
+    // Three faceted spires of varying height/lean.
+    const spire = (dx, h, w, lean) => {
+      const x = cx + dx, y = base - t * 0.04;
+      ctx.beginPath();
+      ctx.moveTo(x - w, y);
+      ctx.lineTo(x - w * 0.55, y - h * 0.72);
+      ctx.lineTo(x + lean, y - h);
+      ctx.lineTo(x + w * 0.55, y - h * 0.72);
+      ctx.lineTo(x + w, y);
+      ctx.closePath();
+      const g = ctx.createLinearGradient(x - w, y - h, x + w, y);
+      g.addColorStop(0, '#b6fbff');
+      g.addColorStop(0.5, '#4fc6e8');
+      g.addColorStop(1, '#1f7fb0');
+      ctx.shadowColor = 'rgba(120,240,255,0.8)';
+      ctx.shadowBlur = 8 + pulse * 8;
+      ctx.fillStyle = g;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      // Bright front facet edge.
+      ctx.beginPath();
+      ctx.moveTo(x + lean, y - h);
+      ctx.lineTo(x, y);
+      ctx.strokeStyle = rgba('#ffffff', 0.5 + pulse * 0.3);
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+    };
+    spire(-t * 0.16, t * 0.34, t * 0.11, -t * 0.03);   // left, shorter
+    spire(t * 0.15, t * 0.30, t * 0.10, t * 0.03);      // right, shorter
+    spire(0, t * 0.50, t * 0.13, 0);                    // centre, tall
   }
 
   _drawTeleport(ctx, c, r, t) {
