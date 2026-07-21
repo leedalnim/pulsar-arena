@@ -29,7 +29,26 @@ export class HUD {
     if (game.localPlayer) this._buffs(ctx, game.localPlayer, W, H);
     if (game.coop && game.humans[1]) this._coopPanel(ctx, game.humans[1], W, H);
     this._minimap(ctx, game, W, H);
+    if (game._introTimer > 0) this._introBanner(ctx, game, W, H);
 
+    ctx.restore();
+  }
+
+  /** Big centered "STAGE n" banner shown during the stage intro freeze. */
+  _introBanner(ctx, game, W, H) {
+    const boss = game.isBossStage;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.fillStyle = boss ? '#ff5a6a' : '#eaf3ff';
+    ctx.shadowColor = boss ? '#ff5a6a' : '#22e6ff';
+    ctx.shadowBlur = 24;
+    ctx.font = `700 46px ${this.font}`;
+    ctx.fillText(boss ? `BOSS · STAGE ${game.stage}` : `STAGE ${game.stage}`, W / 2, H / 2 - 8);
+    ctx.font = `700 16px ${this.font}`;
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = 'rgba(220,232,250,0.92)';
+    const sub = boss ? (this.T.stageIntroBoss || '적을 압도하라!') : (this.T.stageIntroGo || '영역을 점령하라!');
+    ctx.fillText(sub, W / 2, H / 2 + 30);
     ctx.restore();
   }
 

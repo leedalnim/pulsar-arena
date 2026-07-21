@@ -208,8 +208,8 @@ export class Menu {
       ${stageLine}
       <div class="results">${rows}</div>
       <div class="btn-col">
-        <button class="btn btn-primary" data-act="restart">${T.playAgain}</button>
-        <button class="btn btn-ghost" data-act="quit">${T.mainMenu}</button>
+        ${data.net ? '' : `<button class="btn btn-primary" data-act="restart">${T.playAgain}</button>`}
+        <button class="btn ${data.net ? 'btn-primary' : 'btn-ghost'}" data-act="quit">${T.mainMenu}</button>
       </div>
     </div>`;
   }

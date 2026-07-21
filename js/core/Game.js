@@ -12,7 +12,7 @@
  */
 import {
   FACTIONS, STATE, MATCH, CRYSTAL_CFG, TILE, PLAYER, THEMES, THEME_ORDER,
-  PULSE, CLASS_ORDER, ITEMS, ITEM_ORDER, ITEM_CFG,
+  PULSE, CLASS_ORDER, ITEMS, ITEM_ORDER, ITEM_CFG, CORE_TYPES,
 } from './constants.js';
 import { rand, randInt, rgba, TAU, pick, shuffle } from './utils.js';
 import { Camera } from './Camera.js';
@@ -66,6 +66,7 @@ export class Game {
     this.stage = 1;
     this.botAggro = 1;        // bot difficulty multiplier (scaled by stage)
     this.isBossStage = false; // every 5th stage is a 1v1 vs an elite boss
+    this._introTimer = 0;     // >0 while the "STAGE n" intro banner shows
 
     // P2P networking.
     this.netRole = null;      // null (offline) | 'host' | 'client'
@@ -180,6 +181,13 @@ export class Game {
           this.territory.claim(c + dc, r + dr, p.factionIndex);
     }
 
+    // Stage mode: a guaranteed reward item near the player each stage.
+    if (isStages) {
+      const def = ITEMS[pick(ITEM_ORDER)];
+      const spot = this._floorNear(this.localPlayer.x, this.localPlayer.y) || this._randomFloor();
+      if (spot) this.items.push(new Item(spot.x, spot.y, def));
+    }
+
     this.timeLeft = this._matchDuration;
     this.camera.resize(this.viewW, this.viewH);
     this.camera.shakeEnabled = this.settings.shake;
@@ -198,6 +206,7 @@ export class Game {
   start() {
     this.mode = 'arena';
     this.newMatch();
+    this._introTimer = 0;
     this.state = STATE.PLAYING;
     this.input.flush();
     this.input.setTouchVisible(true);
@@ -219,6 +228,7 @@ export class Game {
   _beginStage() {
     this.mode = 'stages';
     this.newMatch();
+    this._introTimer = 1.5;      // brief "STAGE n" intro; sim frozen meanwhile
     this.state = STATE.PLAYING;
     this.input.flush();
     this.input.setTouchVisible(true);
@@ -306,6 +316,17 @@ export class Game {
 
   update(dt) {
     if (this.netRole === 'client') { this._clientTick(dt); return; }
+
+    // Stage intro: freeze the sim briefly while the "STAGE n" banner shows.
+    if (this._introTimer > 0) {
+      this._introTimer -= dt;
+      this.grid.update(dt);
+      this.particles.update(dt);
+      const mid = this._humansMid();
+      this.camera.follow(mid.x, mid.y, this.grid.worldW, this.grid.worldH, dt);
+      this.camera.update(dt);
+      return;
+    }
 
     // Input -> local player intent + pause handling.
     const actions = this.input.poll();
@@ -453,7 +474,8 @@ export class Game {
     this.items = this.items.filter((i) => !i.dead);
   }
 
-  /** Boss special: charge, then release a large "boss nova" pulse centred on it. */
+  /** Boss special: alternates two telegraphed patterns — a large "nova" pulse
+   *  centred on it, and a ring "barrage" of heavy cores planted around it. */
   _bossTick(dt) {
     const boss = this.bossRef;
     if (!boss || boss.downed) return;
@@ -466,10 +488,26 @@ export class Game {
     if (this._bossAtk <= 0) {
       this._bossAtk = 7;
       this._bossTele = false;
-      const nova = { radius: this.grid.tile * 4.6, waveSpeed: 540, damage: true };
-      this.spawnPulse(boss.x, boss.y, nova, boss.factionIndex, boss.color, null);
-      this.camera.addShake(15);
-      this.sound.detonate();
+      this._bossPhase = (this._bossPhase || 0) + 1;
+      if (this._bossPhase % 2 === 1) {
+        // Nova: a big pulse centred on the boss.
+        const nova = { radius: this.grid.tile * 4.6, waveSpeed: 540, damage: true };
+        this.spawnPulse(boss.x, boss.y, nova, boss.factionIndex, boss.color, null);
+        this.camera.addShake(15);
+        this.sound.detonate();
+      } else {
+        // Barrage: plant a ring of heavy cores around the boss.
+        const rad = this.grid.tile * 2;
+        for (let k = 0; k < 5; k++) {
+          const a = (k / 5) * TAU + this._bossPhase;
+          const { c, r } = this.grid.toTile(boss.x + Math.cos(a) * rad, boss.y + Math.sin(a) * rad);
+          if (this.grid.get(c, r) === TILE.FLOOR && !this.coreAt(c, r)) {
+            const w = this.grid.toWorld(c, r);
+            this.deployCore(w.x, w.y, CORE_TYPES.heavy, boss.factionIndex, boss.color);
+          }
+        }
+        this.sound.deploy();
+      }
     }
   }
 
@@ -484,6 +522,20 @@ export class Game {
     const def = ITEMS[pick(ITEM_ORDER)];
     this.items.push(new Item(spot.x, spot.y, def));
     this.particles.sparkle(spot.x, spot.y, def.color, 12);
+  }
+
+  /** Nearest floor tile to a world point (ring search), or null. */
+  _floorNear(x, y) {
+    const { c, r } = this.grid.toTile(x, y);
+    for (let rad = 1; rad <= 4; rad++) {
+      for (let dr = -rad; dr <= rad; dr++) {
+        for (let dc = -rad; dc <= rad; dc++) {
+          if (Math.abs(dr) !== rad && Math.abs(dc) !== rad) continue; // ring only
+          if (this.grid.get(c + dc, r + dr) === TILE.FLOOR) return this.grid.toWorld(c + dc, r + dr);
+        }
+      }
+    }
+    return null;
   }
 
   /** Find a random empty floor tile's world centre (a few tries). */

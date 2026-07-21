@@ -47,7 +47,7 @@ function boot() {
       if (m.t === 'in') game.setRemoteInput(m);              // host <- client input
       else if (m.t === 'init') { sound.unlock(); game.applyNetInit(net, m); menu.hide(); }
       else if (m.t === 's') game.applyNetSnapshot(m);        // client <- snapshot
-      else if (m.t === 'over') { game.state = STATE.OVER; menu.show('over', { scores: m.scores }); }
+      else if (m.t === 'over') { game.state = STATE.OVER; menu.show('over', { scores: m.scores, net: true }); }
     };
   }
 
@@ -81,7 +81,7 @@ function boot() {
       settings.bestStage = Math.max(settings.bestStage || 0, extra.stage - 1);
       Storage.save(settings);
     }
-    menu.show('over', { scores, stage: extra?.stage, best: settings.bestStage });
+    menu.show('over', { scores, stage: extra?.stage, best: settings.bestStage, net: !!game.netRole });
   };
   game.onStageClear = (stage, scores) => {
     settings.bestStage = Math.max(settings.bestStage || 0, stage);

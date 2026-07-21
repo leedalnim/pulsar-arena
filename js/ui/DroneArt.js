@@ -26,8 +26,26 @@ export function drawDrone(ctx, cls, color, radius, facing, t = 0) {
   const accent = cls.accent || color;
   const eye = cls.eye || accent;
   const pulse = 0.85 + 0.15 * Math.sin(t / 180);
+
+  // Movement pointer (drawn BEFORE the upright body so the face stays readable).
+  if (facing !== undefined && facing !== null) {
+    ctx.save();
+    ctx.translate(Math.cos(facing) * R * 1.35, Math.sin(facing) * R * 1.35);
+    ctx.rotate(facing);
+    ctx.beginPath();
+    ctx.moveTo(R * 0.3, 0);
+    ctx.lineTo(-R * 0.16, R * 0.22);
+    ctx.lineTo(-R * 0.16, -R * 0.22);
+    ctx.closePath();
+    ctx.fillStyle = rgba(accent, 0.9);
+    ctx.shadowColor = accent; ctx.shadowBlur = 6;
+    ctx.fill();
+    ctx.restore();
+  }
+
   ctx.save();
-  ctx.rotate(facing + Math.PI / 2);       // the drone's face (−Y) points along facing
+  // Body is kept UPRIGHT (face toward the camera) so the character is always
+  // recognizable regardless of travel direction — the pointer shows heading.
 
   // Back thruster pods.
   for (const sx of [-1, 1]) {

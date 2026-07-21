@@ -217,6 +217,7 @@ console.assert(stageGame.players.filter((p) => p.isHuman).length === 1, 'one hum
 console.assert(stageGame.players.length === 2, 'stage 1 spawns human + 1 bot');
 // Human dominates, then the clock runs out -> stage clears + advances.
 stageGame.localPlayer.crystals = 60;
+stageGame._introTimer = 0;            // skip the intro freeze for the test
 stageGame.timeLeft = 0.1; stageGame.update(0.2);
 console.assert(clearedStage === 1, 'finishing first clears stage 1');
 // Item effects: instant barrier grants a shield, timed magnet sets a timer.
