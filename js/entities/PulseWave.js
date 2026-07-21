@@ -102,7 +102,27 @@ export class PulseWave extends Entity {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
 
-    // Bright leading ring.
+    // Soft inner fill wash.
+    const g = ctx.createRadialGradient(this.x, this.y, this.radius * 0.5,
+      this.x, this.y, this.radius);
+    g.addColorStop(0, rgba(color, 0));
+    g.addColorStop(0.8, rgba(color, alpha * 0.18));
+    g.addColorStop(1, rgba(color, alpha * 0.4));
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, TAU);
+    ctx.fill();
+
+    // Faint trailing echo ring (depth behind the front).
+    if (this.radius > 14) {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius * 0.82, 0, TAU);
+      ctx.strokeStyle = rgba(color, alpha * 0.3);
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+
+    // Bright leading ring with a hot white inner edge.
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.radius, 0, TAU);
     ctx.strokeStyle = rgba(color, alpha);
@@ -111,15 +131,12 @@ export class PulseWave extends Entity {
     ctx.shadowBlur = 24;
     ctx.stroke();
 
-    // Soft inner fill wash.
-    const g = ctx.createRadialGradient(this.x, this.y, this.radius * 0.55,
-      this.x, this.y, this.radius);
-    g.addColorStop(0, rgba(color, 0));
-    g.addColorStop(1, rgba(color, alpha * 0.35));
-    ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.arc(this.x, this.y, this.radius, 0, TAU);
-    ctx.fill();
+    ctx.arc(this.x, this.y, Math.max(0, this.radius - 3), 0, TAU);
+    ctx.strokeStyle = rgba('#ffffff', alpha * 0.8);
+    ctx.lineWidth = 1.6;
+    ctx.shadowBlur = 0;
+    ctx.stroke();
 
     ctx.restore();
   }

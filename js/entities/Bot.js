@@ -17,8 +17,8 @@ import { CORE_TYPES } from '../core/constants.js';
 import { dist, rand, angleBetween, chance } from '../core/utils.js';
 
 export class Bot extends Player {
-  constructor(x, y, faction, index) {
-    super(x, y, faction, index, false);
+  constructor(x, y, faction, index, classId) {
+    super(x, y, faction, index, false, classId);
     this.state = 'SEEK';
     this._decisionTimer = 0;
     this._wanderAngle = rand(0, Math.PI * 2);
@@ -109,7 +109,7 @@ export class Bot extends Player {
   _nearestEnemy(game) {
     let best = null, bd = Infinity;
     for (const p of game.players) {
-      if (p === this || p.downed) continue;
+      if (p === this || p.downed || p.cloaked) continue;   // cloak hides a target
       const d = dist(this.x, this.y, p.x, p.y);
       if (d < bd) { bd = d; best = p; }
     }
@@ -118,6 +118,11 @@ export class Bot extends Player {
 
   _nearestFarmTarget(game) {
     let best = null, bd = 520;
+    // Item pickups are worth grabbing — treat them like priority shards.
+    for (const it of game.items || []) {
+      const d = dist(this.x, this.y, it.x, it.y);
+      if (d < bd) { bd = d; best = { x: it.x, y: it.y, d, isCrystalTile: false }; }
+    }
     // Prefer floating shards (fast energy).
     for (const s of game.shards) {
       const d = dist(this.x, this.y, s.x, s.y);

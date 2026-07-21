@@ -56,6 +56,15 @@ npm test      # headless smoke test
 - **Random maps + 3 themes** — border walls, a pillar lattice, scattered
   destructible crystals, clear corner spawns and linked teleport-pad pairs. Each
   match randomly picks one of three visual themes (연구 시설 / 에너지 광산 / 네온 시티).
+- **Drone classes** — four selectable archetypes, each a stat profile plus a
+  distinct procedurally-drawn vector look: **SPECTER** (balanced), **NOVA**
+  (fast, short dash cooldown), **PHANTOM** (high energy regen), **GUARDIAN**
+  (tanky, longer shield, bigger body). Pick one on the main menu; bots get
+  varied classes. Art is drawn from primitives in `js/ui/DroneArt.js` — no image
+  assets.
+- **Item pickups** — items periodically drop on the floor: **Overcharge**
+  (cheaper, larger pulses), **Haste** (move faster), **Cloak** (bots stop
+  targeting you) and **Energy** (instant refill). Bots grab them too.
 - **Energy Cores** — six archetypes with different fuses, radii and wave speeds:
   Standard, Rapid, Heavy, Resonant (delayed echo waves), Magnetic (yanks nearby
   cores into an instant chain) and Freeze (slows enemies instead of downing
@@ -108,14 +117,16 @@ pulsar-arena/
     │   └── TerritorySystem.js # ownership + scoring
     ├── entities/
     │   ├── Entity.js          # tiny base class
-    │   ├── Player.js          # movement, abilities, energy, respawn
+    │   ├── Player.js          # movement, abilities, class stats, items, respawn
     │   ├── Bot.js             # AI (extends Player)
     │   ├── EnergyCore.js      # deployable core + chain trigger
     │   ├── PulseWave.js       # expanding circular wave
-    │   └── Crystal.js         # collectible shard
+    │   ├── Crystal.js         # collectible shard
+    │   └── Item.js            # floating item pickup (buff/instant)
     └── ui/
-        ├── HUD.js            # canvas scoreboard/energy/cooldowns/minimap
-        └── Menu.js           # DOM overlays (main/settings/pause/results)
+        ├── DroneArt.js       # procedural drone art (canvas top-down + SVG portrait)
+        ├── HUD.js            # canvas scoreboard/energy/cooldowns/buffs/minimap
+        └── Menu.js           # DOM overlays (main + class picker/settings/pause/results)
 ```
 
 **Data flow.** `main.js` builds the subsystems and hands them to `Game`.
@@ -132,6 +143,11 @@ The code is built to grow:
 
 - **New core type** — add an entry to `CORE_TYPES` in `constants.js` (and a glyph
   case in `EnergyCore._drawGlyph`). It appears in the cycle automatically.
+- **New drone class** — add an entry to `CLASSES` in `constants.js` (stat
+  multipliers + a `shape`). Add the silhouette to `hullPath`/`crownSVG` in
+  `DroneArt.js`. It shows up in the menu picker automatically.
+- **New item** — add an entry to `ITEMS` in `constants.js`, a `_glyph` case in
+  `Item.js`, and its effect in `Player.applyItem`. It spawns and drops in.
 - **New ability** — add timers to `Player`, a branch in `_handleAbilities`, and a
   pip in `HUD._playerPanel`.
 - **New tile** — add a `TILE.*` id, handle it in `Grid` (collision + render) and

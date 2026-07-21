@@ -12,6 +12,7 @@ class CtxStub {
     const noop = () => {};
     const methods = ['save','restore','translate','rotate','scale','setTransform',
       'transform','resetTransform','beginPath','moveTo','lineTo','arc','arcTo',
+      'ellipse','quadraticCurveTo','bezierCurveTo',
       'closePath','rect','roundRect','fill','stroke','fillRect','strokeRect',
       'clearRect','clip','fillText','strokeText','setLineDash','drawImage'];
     for (const m of methods) this[m] = noop;

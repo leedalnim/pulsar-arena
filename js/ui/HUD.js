@@ -7,7 +7,7 @@
  * minimap. Rendered after the world so it always sits on top.
  * ---------------------------------------------------------------------------
  */
-import { CORE_TYPES, CORE_ORDER, PLAYER, TILE } from '../core/constants.js';
+import { CORE_TYPES, CORE_ORDER, PLAYER, TILE, ITEMS } from '../core/constants.js';
 import { strings } from '../core/i18n.js';
 import { TAU, rgba, clamp } from '../core/utils.js';
 
@@ -25,9 +25,52 @@ export class HUD {
     this._scoreboard(ctx, game, W);
     this._timer(ctx, game, W);
     if (game.localPlayer) this._playerPanel(ctx, game, W, H);
+    if (game.localPlayer) this._buffs(ctx, game.localPlayer, W, H);
     this._minimap(ctx, game, W, H);
 
     ctx.restore();
+  }
+
+  /* --------------------------- active item buffs ------------------------- */
+  _buffs(ctx, p, W, H) {
+    const active = [];
+    if (p.overchargeTimer > 0) active.push(['overcharge', p.overchargeTimer, ITEMS.overcharge.duration]);
+    if (p.hasteTimer > 0) active.push(['haste', p.hasteTimer, ITEMS.haste.duration]);
+    if (p.cloakTimer > 0) active.push(['cloak', p.cloakTimer, ITEMS.cloak.duration]);
+    if (!active.length) return;
+
+    const r = 15, gap = 40;
+    const y = H - 92 - 16 - r - 12;                 // just above the player panel
+    let x = W / 2 - ((active.length - 1) * gap) / 2;
+    for (const [id, t, dur] of active) {
+      const def = ITEMS[id];
+      // Base disc.
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, TAU);
+      ctx.fillStyle = rgba(def.color, 0.22);
+      ctx.fill();
+      // Remaining-time sweep.
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(t / dur, 0, 1));
+      ctx.closePath();
+      ctx.fillStyle = rgba(def.color, 0.5);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, TAU);
+      ctx.strokeStyle = def.color;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = def.color;
+      ctx.shadowBlur = 8;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      // Seconds left.
+      ctx.fillStyle = '#eaf3ff';
+      ctx.font = `700 12px ${this.font}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(String(Math.ceil(t)), x, y + 0.5);
+      x += gap;
+    }
   }
 
   /* ---------------------------- scoreboard ------------------------------- */
@@ -158,7 +201,7 @@ export class HUD {
     const barX = x + 16, barY = y + 18, barW = boxW - 32, barH = 12;
     ctx.fillStyle = 'rgba(255,255,255,0.08)';
     this._round(ctx, barX, barY, barW, barH, 6); ctx.fill();
-    const e = p.energy / PLAYER.MAX_ENERGY;
+    const e = p.energy / p.maxEnergy;
     const g = ctx.createLinearGradient(barX, 0, barX + barW, 0);
     g.addColorStop(0, '#22e6ff');
     g.addColorStop(1, '#a6ff2e');
@@ -172,9 +215,9 @@ export class HUD {
     // Ability pips: DASH, SHIELD, and current CORE.
     const pipY = y + 52, pipR = 15, gap = 60;
     const cx0 = x + 40;
-    this._abilityPip(ctx, cx0, pipY, pipR, this.T.hudDash, 1 - p.dashCd / PLAYER.DASH_COOLDOWN, '»');
+    this._abilityPip(ctx, cx0, pipY, pipR, this.T.hudDash, 1 - p.dashCd / p.dashCooldown, '»');
     this._abilityPip(ctx, cx0 + gap, pipY, pipR, this.T.hudShield,
-      p.shielded ? 1 : 1 - p.shieldCd / PLAYER.SHIELD_COOLDOWN, '◈', p.shielded);
+      p.shielded ? 1 : 1 - p.shieldCd / p.shieldCooldown, '◈', p.shielded);
 
     // Core selector.
     const type = CORE_TYPES[p.coreType];

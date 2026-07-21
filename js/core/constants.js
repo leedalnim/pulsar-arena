@@ -78,6 +78,43 @@ export const PLAYER = {
 };
 
 /**
+ * Character classes (drones). Each is a stat profile plus a vector look (drawn
+ * procedurally by DroneArt.js — no image assets). Multipliers scale the base
+ * PLAYER values so balance stays centralised. `shape` selects the silhouette.
+ */
+export const CLASSES = {
+  specter: {
+    id: 'specter', name: 'SPECTER', role: { ko: '밸런스형', en: 'BALANCED' },
+    shape: 'round', accent: '#7ff0ff', eye: '#7ff0ff',
+    light: '#eef6ff', mid: '#c3d2e6', dark: '#3c4a63',
+    speedMul: 1.0, regenMul: 1.0, maxEnergyMul: 1.0,
+    dashCdMul: 1.0, shieldTimeMul: 1.0, radiusMul: 1.0,
+  },
+  nova: {
+    id: 'nova', name: 'NOVA', role: { ko: '스피드형', en: 'SPEED' },
+    shape: 'chevron', accent: '#ffcf4a', eye: '#8ff0ff',
+    light: '#f4f7fb', mid: '#8090ab', dark: '#232d45',
+    speedMul: 1.18, regenMul: 1.0, maxEnergyMul: 0.9,
+    dashCdMul: 0.68, shieldTimeMul: 0.85, radiusMul: 0.94,
+  },
+  phantom: {
+    id: 'phantom', name: 'PHANTOM', role: { ko: '스킬형', en: 'STEALTH' },
+    shape: 'teardrop', accent: '#c76bff', eye: '#8ff0ff',
+    light: '#e6ddf7', mid: '#7a6ca6', dark: '#241a3d',
+    speedMul: 1.06, regenMul: 1.28, maxEnergyMul: 0.95,
+    dashCdMul: 0.9, shieldTimeMul: 1.0, radiusMul: 0.96,
+  },
+  guardian: {
+    id: 'guardian', name: 'GUARDIAN', role: { ko: '뱅커형', en: 'TANK' },
+    shape: 'armored', accent: '#5fb8ff', eye: '#7ff0ff',
+    light: '#eaf2fb', mid: '#9db4d2', dark: '#38506e',
+    speedMul: 0.86, regenMul: 1.0, maxEnergyMul: 1.22,
+    dashCdMul: 1.3, shieldTimeMul: 1.6, radiusMul: 1.12,
+  },
+};
+export const CLASS_ORDER = ['specter', 'nova', 'phantom', 'guardian'];
+
+/**
  * Energy Core archetypes. Cores are deployed onto a tile, arm after `fuse`
  * seconds, then release an expanding PulseWave. They cost energy to deploy.
  */
@@ -143,6 +180,40 @@ export const CRYSTAL_CFG = {
   SHARD_MAGNET: 74,       // pickup radius
 };
 
+/**
+ * Item pickups. Spawn on floor tiles during a match; walking over one applies
+ * a timed buff (or an instant effect). Drawn procedurally by their `glyph`.
+ */
+export const ITEMS = {
+  overcharge: {
+    id: 'overcharge', glyph: 'bolt', color: '#ff6a3c', accent: '#ffd08a',
+    label: { ko: '과부하', en: 'OVERCHARGE' }, duration: 8,
+    // Cheaper, larger pulses while active.
+    costMul: 0.5, radiusMul: 1.32,
+  },
+  haste: {
+    id: 'haste', glyph: 'chevron', color: '#a6ff2e', accent: '#e4ffb0',
+    label: { ko: '가속', en: 'HASTE' }, duration: 6, speedMul: 1.35,
+  },
+  cloak: {
+    id: 'cloak', glyph: 'eye', color: '#c76bff', accent: '#ecd0ff',
+    label: { ko: '은신', en: 'CLOAK' }, duration: 6,
+    // Bots stop targeting a cloaked player.
+  },
+  cell: {
+    id: 'cell', glyph: 'cell', color: '#8ff6ff', accent: '#ffffff',
+    label: { ko: '에너지', en: 'ENERGY' }, instant: true, // full energy refill
+  },
+};
+export const ITEM_ORDER = ['overcharge', 'haste', 'cloak', 'cell'];
+
+export const ITEM_CFG = {
+  SPAWN_INTERVAL: 9,   // seconds between item spawns
+  MAX_ACTIVE: 3,       // cap simultaneous uncollected items
+  LIFETIME: 18,        // seconds before an uncollected item fades
+  PICKUP_RADIUS: 26,
+};
+
 /** Camera behaviour. */
 export const CAMERA = {
   LERP: 0.12,             // follow smoothing
@@ -161,6 +232,7 @@ export const DEFAULT_SETTINGS = {
   botCount: 3,
   duration: MATCH.DEFAULT_DURATION,
   lang: 'ko',        // Korean by default; English selectable in settings
+  charClass: 'specter', // chosen drone class for the human player
 };
 
 /** Game state machine values. */

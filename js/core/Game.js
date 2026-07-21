@@ -12,8 +12,9 @@
  */
 import {
   FACTIONS, STATE, MATCH, CRYSTAL_CFG, TILE, PLAYER, THEMES, THEME_ORDER,
+  PULSE, CLASS_ORDER, ITEMS, ITEM_ORDER, ITEM_CFG,
 } from './constants.js';
-import { rand, randInt, rgba, TAU, pick } from './utils.js';
+import { rand, randInt, rgba, TAU, pick, shuffle } from './utils.js';
 import { Camera } from './Camera.js';
 import { MapGenerator } from '../world/MapGenerator.js';
 import { TerritorySystem } from '../world/TerritorySystem.js';
@@ -22,6 +23,7 @@ import { Bot } from '../entities/Bot.js';
 import { EnergyCore } from '../entities/EnergyCore.js';
 import { PulseWave } from '../entities/PulseWave.js';
 import { Crystal } from '../entities/Crystal.js';
+import { Item } from '../entities/Item.js';
 import { HUD } from '../ui/HUD.js';
 
 export class Game {
@@ -48,8 +50,10 @@ export class Game {
     this.cores = [];
     this.waves = [];
     this.shards = [];
+    this.items = [];          // floating item pickups
     this._echoes = [];        // scheduled delayed pulses (resonant cores)
     this._flashes = [];       // brief detonation light pops
+    this._itemAcc = 0;        // item spawn accumulator
 
     this.localPlayer = null;
     this.grid = null;
@@ -81,15 +85,19 @@ export class Game {
     this.cores = [];
     this.waves = [];
     this.shards = [];
+    this.items = [];
     this._echoes = [];
     this._flashes = [];
+    this._itemAcc = 0;
     this.particles.clear();
 
-    // Human is faction 0; remaining are bots.
-    this.localPlayer = new Player(spawns[0].x, spawns[0].y, this.factions[0], 0, true);
+    // Human is faction 0 with the chosen class; bots get varied classes.
+    const humanClass = this.settings.charClass || 'specter';
+    this.localPlayer = new Player(spawns[0].x, spawns[0].y, this.factions[0], 0, true, humanClass);
     this.players.push(this.localPlayer);
+    const botClasses = shuffle(CLASS_ORDER.filter((c) => c !== humanClass).concat(CLASS_ORDER));
     for (let i = 1; i < factionCount; i++) {
-      this.players.push(new Bot(spawns[i].x, spawns[i].y, this.factions[i], i));
+      this.players.push(new Bot(spawns[i].x, spawns[i].y, this.factions[i], i, botClasses[i - 1]));
     }
 
     // Seed each spawn with owned territory so scores start non-zero.
@@ -171,9 +179,11 @@ export class Game {
     for (const c of this.cores) c.update(dt, this);
     for (const w of this.waves) w.update(dt, this);
     for (const s of this.shards) s.update(dt, this);
+    for (const it of this.items) it.update(dt, this);
 
     this._updateEchoes(dt);
     this._updateFlashes(dt);
+    this._updateItems(dt);
     this._presenceClaim(dt);
 
     this.grid.update(dt);
@@ -227,6 +237,30 @@ export class Game {
     this.cores = this.cores.filter((c) => !c.dead);
     this.waves = this.waves.filter((w) => !w.dead);
     this.shards = this.shards.filter((s) => !s.dead);
+    this.items = this.items.filter((i) => !i.dead);
+  }
+
+  /** Periodically drop an item pickup on a random reachable floor tile. */
+  _updateItems(dt) {
+    this._itemAcc += dt;
+    if (this._itemAcc < ITEM_CFG.SPAWN_INTERVAL) return;
+    this._itemAcc = 0;
+    if (this.items.length >= ITEM_CFG.MAX_ACTIVE) return;
+    const spot = this._randomFloor();
+    if (!spot) return;
+    const def = ITEMS[pick(ITEM_ORDER)];
+    this.items.push(new Item(spot.x, spot.y, def));
+    this.particles.sparkle(spot.x, spot.y, def.color, 12);
+  }
+
+  /** Find a random empty floor tile's world centre (a few tries). */
+  _randomFloor() {
+    const g = this.grid;
+    for (let n = 0; n < 24; n++) {
+      const c = randInt(1, g.cols - 2), r = randInt(1, g.rows - 2);
+      if (g.get(c, r) === TILE.FLOOR) return g.toWorld(c, r);
+    }
+    return null;
   }
 
   /* --------------------------- gameplay API ------------------------------ */
@@ -275,8 +309,16 @@ export class Game {
 
   onShardCollected(shard, player) {
     player.crystals += 1;
-    player.energy = Math.min(PLAYER.MAX_ENERGY, player.energy + MATCH.CRYSTAL_ENERGY);
+    player.energy = Math.min(player.maxEnergy, player.energy + MATCH.CRYSTAL_ENERGY);
     this.particles.sparkle(shard.x, shard.y, player.color, 12);
+    if (player.isHuman) this.sound.pickup();
+  }
+
+  onItemCollected(item, player) {
+    player.applyItem(item.def);
+    this.particles.burst(item.x, item.baseY, item.def.color, 22, 240);
+    this.particles.sparkle(item.x, item.baseY, item.def.accent || '#ffffff', 10);
+    this._flashes.push({ x: item.x, y: item.baseY, t: 0, dur: 0.2, color: item.def.color });
     if (player.isHuman) this.sound.pickup();
   }
 
@@ -293,8 +335,9 @@ export class Game {
     const downed = player.takeHit(this, wave, distance);
     if (downed) {
       const ang = Math.atan2(player.y - wave.y, player.x - wave.x);
-      player.x += Math.cos(ang) * 14;
-      player.y += Math.sin(ang) * 14;
+      // Heavier cores hit harder; applied as a decaying impulse (px/s).
+      const power = PULSE.KNOCKBACK * (wave.maxRadius > 150 ? 1.25 : 1);
+      player.applyKnockback(ang, power);
       if (player.isHuman) this.camera.addShake(16);
     }
   }
@@ -352,6 +395,7 @@ export class Game {
     this.grid.renderTiles(ctx, this.camera);
 
     for (const s of this.shards) s.render(ctx);
+    for (const it of this.items) it.render(ctx);
     for (const c of this.cores) c.render(ctx);
     for (const p of this.players) p.render(ctx);
     for (const w of this.waves) w.render(ctx);
@@ -381,6 +425,12 @@ export class Game {
       ctx.beginPath();
       ctx.arc(f.x, f.y, rad, 0, TAU);
       ctx.fill();
+      // Crisp expanding shockwave ring.
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, rad * 1.1, 0, TAU);
+      ctx.strokeStyle = rgba('#ffffff', a * 0.7);
+      ctx.lineWidth = 2;
+      ctx.stroke();
     }
     ctx.restore();
   }

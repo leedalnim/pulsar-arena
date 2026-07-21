@@ -11,6 +11,8 @@
  * ---------------------------------------------------------------------------
  */
 import { strings, LANG_NAMES } from '../core/i18n.js';
+import { CLASSES, CLASS_ORDER } from '../core/constants.js';
+import { portraitSVG } from './DroneArt.js';
 
 export class Menu {
   /**
@@ -60,12 +62,32 @@ export class Menu {
     const T = strings(this.settings.lang);
     return `<div class="panel panel-main">
       ${this._logo(T)}
+      ${this._classPicker(T)}
       <div class="btn-col">
         <button class="btn btn-primary" data-act="start">${T.enterArena}</button>
         <button class="btn" data-act="howto">${T.howToPlay}</button>
         <button class="btn" data-act="settings">${T.settings}</button>
       </div>
       <p class="footnote">${T.mainFootnote}</p>
+    </div>`;
+  }
+
+  /** Drone class picker: vector portraits selectable before entering the arena. */
+  _classPicker(T) {
+    const lang = this.settings.lang;
+    const sel = CLASSES[this.settings.charClass] ? this.settings.charClass : 'specter';
+    const cards = CLASS_ORDER.map((id) => {
+      const cls = CLASSES[id];
+      const role = (cls.role && cls.role[lang]) || cls.role.en || '';
+      return `<button class="cls-card ${id === sel ? 'sel' : ''}" data-cls="${id}" style="--c:${cls.accent}">
+        <span class="cls-art">${portraitSVG(cls, 88)}</span>
+        <span class="cls-name">${cls.name}</span>
+        <span class="cls-role">${role}</span>
+      </button>`;
+    }).join('');
+    return `<div class="cls-pick">
+      <div class="cls-label">${T.chooseDrone || 'CHOOSE YOUR DRONE'}</div>
+      <div class="cls-row">${cards}</div>
     </div>`;
   }
 
@@ -178,6 +200,16 @@ export class Menu {
             this.show(btn.dataset.from === 'pause' ? 'pause' : 'main');
             break;
         }
+      });
+    });
+
+    // Drone class selection (main screen).
+    q('[data-cls]').forEach((card) => {
+      card.addEventListener('click', () => {
+        this.settings.charClass = card.dataset.cls;
+        this.cb.onSettingsChange(this.settings);
+        this.cb.onUI?.();
+        this.show('main');
       });
     });
 

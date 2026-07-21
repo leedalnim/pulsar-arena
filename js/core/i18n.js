@@ -19,6 +19,7 @@ const DICT = {
     enterArena: '게임 시작',
     howToPlay: '게임 방법',
     settings: '설정',
+    chooseDrone: '드론 선택',
     mainFootnote: '오리지널 네온 아레나 — 영역을 점령하고 코어를 연쇄시키세요.',
 
     // How to play
@@ -70,6 +71,7 @@ const DICT = {
   en: {
     tagline: 'ENERGY\u00A0CORE\u00A0ARENA',
     enterArena: 'ENTER ARENA',
+    chooseDrone: 'CHOOSE YOUR DRONE',
     howToPlay: 'HOW TO PLAY',
     settings: 'SETTINGS',
     mainFootnote: 'An original neon arena. Claim territory. Chain the cores.',

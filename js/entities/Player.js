@@ -10,8 +10,9 @@
  * ---------------------------------------------------------------------------
  */
 import { Entity } from './Entity.js';
-import { PLAYER, TILE, CORE_ORDER, CORE_TYPES } from '../core/constants.js';
+import { PLAYER, TILE, CORE_ORDER, CORE_TYPES, CLASSES, ITEMS } from '../core/constants.js';
 import { TAU, clamp, rgba, angleBetween, shadowEllipse } from '../core/utils.js';
+import { drawDrone } from '../ui/DroneArt.js';
 
 export class Player extends Entity {
   /**
@@ -21,19 +22,38 @@ export class Player extends Entity {
    * @param {number} index faction index
    * @param {boolean} isHuman
    */
-  constructor(x, y, faction, index, isHuman) {
+  constructor(x, y, faction, index, isHuman, classId = 'specter') {
     super(x, y);
     this.faction = faction;
     this.factionIndex = index;
     this.color = faction.color;
     this.isHuman = isHuman;
-    this.radius = PLAYER.RADIUS;
+
+    // Class profile: scales the base PLAYER stats + selects the vector look.
+    this.classId = CLASSES[classId] ? classId : 'specter';
+    this.cls = CLASSES[this.classId];
+    this.radius = PLAYER.RADIUS * (this.cls.radiusMul || 1);
+    this.maxEnergy = PLAYER.MAX_ENERGY * (this.cls.maxEnergyMul || 1);
+    this.speedMul = this.cls.speedMul || 1;
+    this.regenMul = this.cls.regenMul || 1;
+    this.dashCooldown = PLAYER.DASH_COOLDOWN * (this.cls.dashCdMul || 1);
+    this.shieldTime = PLAYER.SHIELD_TIME * (this.cls.shieldTimeMul || 1);
+    this.shieldCooldown = PLAYER.SHIELD_COOLDOWN;
 
     this.spawnX = x;
     this.spawnY = y;
 
-    this.energy = PLAYER.MAX_ENERGY;
+    this.energy = this.maxEnergy;
     this.facing = 0;              // radians, for the directional pointer
+
+    // Timed item buffs (0 = inactive). See constants.ITEMS.
+    this.overchargeTimer = 0;
+    this.hasteTimer = 0;
+    this.cloakTimer = 0;
+
+    // Pulse knockback velocity (px/s), decays over a fraction of a second.
+    this.knockVx = 0;
+    this.knockVy = 0;
 
     // Abilities / timers.
     this.coreType = 'standard';
@@ -73,6 +93,26 @@ export class Player extends Entity {
   get shielded() { return this.shieldTimer > 0; }
   get invulnerable() { return this.shieldTimer > 0 || this.invuln > 0 || this.dashTimer > 0; }
   get slowed() { return this.slowTimer > 0; }
+  get overcharged() { return this.overchargeTimer > 0; }
+  get hasted() { return this.hasteTimer > 0; }
+  get cloaked() { return this.cloakTimer > 0; }
+
+  /** Apply a picked-up item — a timed buff or an instant effect. */
+  applyItem(item) {
+    if (item.instant) {                 // ENERGY cell: full refill
+      this.energy = this.maxEnergy;
+      return;
+    }
+    if (item.id === 'overcharge') this.overchargeTimer = item.duration;
+    else if (item.id === 'haste') this.hasteTimer = item.duration;
+    else if (item.id === 'cloak') this.cloakTimer = item.duration;
+  }
+
+  /** Add a pulse knockback impulse (px/s) in the given direction. */
+  applyKnockback(angle, power) {
+    this.knockVx += Math.cos(angle) * power;
+    this.knockVy += Math.sin(angle) * power;
+  }
 
   /** Apply a movement slow from a freeze wave. Blocked while invulnerable. */
   applySlow(factor, time) {
@@ -92,6 +132,12 @@ export class Player extends Entity {
     this._teleCooldown = Math.max(0, this._teleCooldown - dt);
     if (this.shieldTimer > 0) this.shieldTimer -= dt;
     if (this.slowTimer > 0) { this.slowTimer -= dt; if (this.slowTimer <= 0) this.slowFactor = 1; }
+    if (this.overchargeTimer > 0) this.overchargeTimer -= dt;
+    if (this.hasteTimer > 0) this.hasteTimer -= dt;
+    if (this.cloakTimer > 0) this.cloakTimer -= dt;
+
+    // Knockback slides the unit even while downed (blown-away read).
+    this._applyKnockback(dt, game);
 
     // Downed players do nothing but count down to respawn.
     if (this.downed) {
@@ -100,8 +146,8 @@ export class Player extends Entity {
       return;
     }
 
-    // Passive energy regeneration.
-    this.energy = clamp(this.energy + PLAYER.ENERGY_REGEN * dt, 0, PLAYER.MAX_ENERGY);
+    // Passive energy regeneration (class-scaled).
+    this.energy = clamp(this.energy + PLAYER.ENERGY_REGEN * this.regenMul * dt, 0, this.maxEnergy);
 
     // Let subclasses (Bot) compute their intent right before we act on it.
     this.think(dt, game);
@@ -114,6 +160,22 @@ export class Player extends Entity {
   /** Overridden by Bot. Human intent is already set via applyIntent(). */
   think(dt, game) {}
 
+  /** Integrate + decay the pulse knockback impulse, resolving wall collisions. */
+  _applyKnockback(dt, game) {
+    if (this.knockVx * this.knockVx + this.knockVy * this.knockVy < 4) {
+      this.knockVx = this.knockVy = 0;
+      return;
+    }
+    const nx = this.x + this.knockVx * dt;
+    const ny = this.y + this.knockVy * dt;
+    const res = game.grid.resolveCircle(nx, ny, this.radius);
+    this.x = res.x;
+    this.y = res.y;
+    const decay = Math.exp(-dt * 11);   // ~impulse dies within ~0.25s
+    this.knockVx *= decay;
+    this.knockVy *= decay;
+  }
+
   _handleAbilities(game) {
     const it = this.intent;
 
@@ -125,13 +187,13 @@ export class Player extends Entity {
 
     if (it.dash && this.dashCd <= 0 && (it.move.x || it.move.y)) {
       this.dashTimer = PLAYER.DASH_TIME;
-      this.dashCd = PLAYER.DASH_COOLDOWN;
+      this.dashCd = this.dashCooldown;
       game.sound.dash();
     }
 
     if (it.shield && this.shieldCd <= 0) {
-      this.shieldTimer = PLAYER.SHIELD_TIME;
-      this.shieldCd = PLAYER.SHIELD_COOLDOWN;
+      this.shieldTimer = this.shieldTime;
+      this.shieldCd = this.shieldCooldown;
       game.sound.shield();
     }
 
@@ -140,13 +202,17 @@ export class Player extends Entity {
 
   /** Attempt to place an Energy Core on the current tile. */
   deployCore(game) {
-    const type = CORE_TYPES[this.coreType];
-    if (this.energy < type.cost) return false;
+    let type = CORE_TYPES[this.coreType];
+    // OVERCHARGE item: cheaper, larger pulses.
+    const cost = this.overcharged
+      ? Math.round(type.cost * ITEMS.overcharge.costMul) : type.cost;
+    if (this.energy < cost) return false;
     const { c, r } = game.grid.toTile(this.x, this.y);
     if (game.grid.get(c, r) !== TILE.FLOOR) return false;
     if (game.coreAt(c, r)) return false;              // one core per tile
+    if (this.overcharged) type = { ...type, radius: type.radius * ITEMS.overcharge.radiusMul };
     const w = game.grid.toWorld(c, r);
-    this.energy -= type.cost;
+    this.energy -= cost;
     game.deployCore(w.x, w.y, type, this.factionIndex, this.color);
     game.sound.deploy();
     return true;
@@ -158,9 +224,10 @@ export class Player extends Entity {
     if (moving) this.facing = Math.atan2(my, mx);
 
     // Dashing ignores the slow (it stays a reliable escape); walking is slowed.
+    const haste = this.hasteTimer > 0 ? ITEMS.haste.speedMul : 1;
     const speed = this.dashTimer > 0
       ? PLAYER.DASH_SPEED
-      : PLAYER.SPEED * (this.slowTimer > 0 ? this.slowFactor : 1);
+      : PLAYER.SPEED * this.speedMul * haste * (this.slowTimer > 0 ? this.slowFactor : 1);
     if (this.dashTimer > 0) {
       // While dashing, drive along facing even without fresh input.
       mx = Math.cos(this.facing);
@@ -211,7 +278,8 @@ export class Player extends Entity {
   _respawn(game) {
     this.downed = false;
     this.invuln = PLAYER.RESPAWN_INVULN;
-    this.energy = Math.max(this.energy, PLAYER.MAX_ENERGY * 0.5);
+    this.energy = Math.max(this.energy, this.maxEnergy * 0.5);
+    this.knockVx = this.knockVy = 0;
     this.x = this.spawnX;
     this.y = this.spawnY;
     game.particles.burst(this.x, this.y, this.color, 24, 220);
@@ -259,37 +327,22 @@ export class Player extends Entity {
       ctx.restore();
     }
 
-    // Body: glowing rounded core with a directional pointer.
-    ctx.shadowColor = this.color;
-    ctx.shadowBlur = this.invuln > 0 && Math.floor(performance.now() / 120) % 2 ? 4 : 16;
-
-    // Directional pointer fin.
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(this.facing) * (this.radius + 8), Math.sin(this.facing) * (this.radius + 8));
-    ctx.lineTo(Math.cos(this.facing + 2.5) * this.radius, Math.sin(this.facing + 2.5) * this.radius);
-    ctx.lineTo(Math.cos(this.facing - 2.5) * this.radius, Math.sin(this.facing - 2.5) * this.radius);
-    ctx.closePath();
-    ctx.fillStyle = rgba(this.color, 0.85);
-    ctx.fill();
-
-    // Core disc.
-    const g = ctx.createRadialGradient(0, 0, 2, 0, 0, this.radius);
-    g.addColorStop(0, '#ffffff');
-    g.addColorStop(0.4, this.color);
-    g.addColorStop(1, rgba(this.color, 0.25));
-    ctx.beginPath();
-    ctx.arc(0, 0, this.radius, 0, TAU);
-    ctx.fillStyle = g;
-    ctx.fill();
-
-    // Human players get a bright inner ring so they stand out from bots.
+    // Human players get a bright ground ring so they stand out from bots.
     if (this.isHuman) {
       ctx.beginPath();
-      ctx.arc(0, 0, this.radius * 0.55, 0, TAU);
-      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-      ctx.lineWidth = 2;
+      ctx.arc(0, 0, this.radius + 6, 0, TAU);
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = 1.5;
       ctx.stroke();
     }
+
+    // Class-specific vector drone body (tinted by faction colour).
+    ctx.globalAlpha = this.cloaked ? (this.isHuman ? 0.55 : 0.32) : 1;
+    // Invuln flicker keeps the respawn grace legible.
+    if (!(this.invuln > 0 && Math.floor(performance.now() / 120) % 2)) {
+      drawDrone(ctx, this.cls, this.color, this.radius, this.facing, performance.now());
+    }
+    ctx.globalAlpha = 1;
 
     ctx.restore();
   }
