@@ -21,6 +21,11 @@ const DICT = {
     settings: '설정',
     chooseDrone: '드론 선택',
     online: '온라인 1v1 (P2P)',
+    stageMode: '스테이지 모드',
+    stageClear: '스테이지 {n} 클리어!',
+    nextStage: '스테이지 {n} →',
+    nextStageHint: '다음 스테이지는 적이 더 많고 강해집니다.',
+    stageReached: '스테이지 {n} 도달',
     mainFootnote: '오리지널 네온 아레나 — 영역을 점령하고 코어를 연쇄시키세요.',
 
     // How to play
@@ -76,6 +81,11 @@ const DICT = {
     enterArena: 'ENTER ARENA',
     chooseDrone: 'CHOOSE YOUR DRONE',
     online: 'ONLINE 1v1 (P2P)',
+    stageMode: 'STAGE MODE',
+    stageClear: 'STAGE {n} CLEAR!',
+    nextStage: 'STAGE {n} →',
+    nextStageHint: 'The next stage has more, tougher rivals.',
+    stageReached: 'REACHED STAGE {n}',
     howToPlay: 'HOW TO PLAY',
     settings: 'SETTINGS',
     mainFootnote: 'An original neon arena. Claim territory. Chain the cores.',

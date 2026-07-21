@@ -203,6 +203,31 @@ console.assert(Math.abs(clientGame.timeLeft - hostGame.timeLeft) < 0.05, 'client
 console.log('P2P loopback: remote input moved host player to',
   Math.round(hRemote.x) + ',' + Math.round(hRemote.y), '| client mirrored + clock synced');
 
+// --- Stage mode + expanded (8) items ---
+const { ITEMS } = await import('../js/core/constants.js');
+console.assert(Object.keys(ITEMS).length === 8, 'eight items defined');
+const stageGame = new Game(new CanvasStub(), { ...Storage.load(), sfx: false, botCount: 3, duration: 5 }, sound, noInput, new ParticleSystem());
+let clearedStage = 0;
+stageGame.onStageClear = (n) => { clearedStage = n; };
+stageGame.onGameOver = () => {}; stageGame.onPauseRequested = () => {};
+stageGame.resize(1280, 720, 1);
+stageGame.startStages();
+console.assert(stageGame.mode === 'stages' && stageGame.stage === 1, 'stage mode starts at stage 1');
+console.assert(stageGame.players.filter((p) => p.isHuman).length === 1, 'one human in stage mode');
+console.assert(stageGame.players.length === 2, 'stage 1 spawns human + 1 bot');
+// Human dominates, then the clock runs out -> stage clears + advances.
+stageGame.localPlayer.crystals = 60;
+stageGame.timeLeft = 0.1; stageGame.update(0.2);
+console.assert(clearedStage === 1, 'finishing first clears stage 1');
+// Item effects: instant barrier grants a shield, timed magnet sets a timer.
+const sp = stageGame.localPlayer;
+sp.shieldTimer = 0; sp.applyItem(ITEMS.barrier, stageGame);
+console.assert(sp.shielded, 'barrier grants a shield');
+sp.applyItem(ITEMS.magnet, stageGame);
+console.assert(sp.magnetTimer > 0, 'magnet sets a timer');
+sp.applyItem(ITEMS.blink, stageGame); // must not throw (teleports to a floor tile)
+console.log('stage cleared:', clearedStage, '| items:', Object.keys(ITEMS).length, '| barrier/magnet/blink OK');
+
 // Settings persistence round-trip.
 Storage.save({ ...settings, volume: 0.42 });
 console.assert(Storage.load().volume === 0.42, 'settings persist');

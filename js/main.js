@@ -54,6 +54,8 @@ function boot() {
   /* ------------------------------- menu ---------------------------------- */
   const menu = new Menu(overlay, {
     onStart: () => { sound.unlock(); game.start(); menu.hide(); },
+    onStages: () => { sound.unlock(); game.startStages(); menu.hide(); },
+    onNextStage: () => { game.nextStage(); menu.hide(); },
     onResume: () => { game.resume(); menu.hide(); },
     onRestart: () => { game.restart(); menu.hide(); },
     onQuit: () => { game.quitToMenu(); menu.show('main'); },
@@ -74,7 +76,8 @@ function boot() {
   }, settings);
 
   // Game -> menu bridges.
-  game.onGameOver = (scores) => menu.show('over', { scores });
+  game.onGameOver = (scores, extra) => menu.show('over', { scores, stage: extra?.stage });
+  game.onStageClear = (stage, scores) => menu.show('stage', { stage, scores });
   game.onPauseRequested = () => menu.show('pause');
   game.onReturnMenu = () => menu.show('main');
 

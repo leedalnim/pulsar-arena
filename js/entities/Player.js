@@ -50,6 +50,8 @@ export class Player extends Entity {
     this.overchargeTimer = 0;
     this.hasteTimer = 0;
     this.cloakTimer = 0;
+    this.magnetTimer = 0;
+    this.rapidTimer = 0;
 
     // Pulse knockback velocity (px/s), decays over a fraction of a second.
     this.knockVx = 0;
@@ -96,16 +98,25 @@ export class Player extends Entity {
   get overcharged() { return this.overchargeTimer > 0; }
   get hasted() { return this.hasteTimer > 0; }
   get cloaked() { return this.cloakTimer > 0; }
+  get magnetized() { return this.magnetTimer > 0; }
+  get rapid() { return this.rapidTimer > 0; }
 
   /** Apply a picked-up item — a timed buff or an instant effect. */
-  applyItem(item) {
-    if (item.instant) {                 // ENERGY cell: full refill
-      this.energy = this.maxEnergy;
+  applyItem(item, game) {
+    if (item.instant) {
+      if (item.id === 'cell') this.energy = this.maxEnergy;              // full refill
+      else if (item.id === 'barrier') this.shieldTimer = Math.max(this.shieldTimer, item.duration || 4);
+      else if (item.id === 'blink') {                                   // teleport away
+        const spot = game && game._randomFloor && game._randomFloor();
+        if (spot) { this.x = spot.x; this.y = spot.y; this.knockVx = this.knockVy = 0; }
+      }
       return;
     }
     if (item.id === 'overcharge') this.overchargeTimer = item.duration;
     else if (item.id === 'haste') this.hasteTimer = item.duration;
     else if (item.id === 'cloak') this.cloakTimer = item.duration;
+    else if (item.id === 'magnet') this.magnetTimer = item.duration;
+    else if (item.id === 'rapidcore') this.rapidTimer = item.duration;
   }
 
   /** Add a pulse knockback impulse (px/s) in the given direction. */
@@ -135,6 +146,8 @@ export class Player extends Entity {
     if (this.overchargeTimer > 0) this.overchargeTimer -= dt;
     if (this.hasteTimer > 0) this.hasteTimer -= dt;
     if (this.cloakTimer > 0) this.cloakTimer -= dt;
+    if (this.magnetTimer > 0) this.magnetTimer -= dt;
+    if (this.rapidTimer > 0) this.rapidTimer -= dt;
 
     // Knockback slides the unit even while downed (blown-away read).
     this._applyKnockback(dt, game);
@@ -211,6 +224,7 @@ export class Player extends Entity {
     if (game.grid.get(c, r) !== TILE.FLOOR) return false;
     if (game.coreAt(c, r)) return false;              // one core per tile
     if (this.overcharged) type = { ...type, radius: type.radius * ITEMS.overcharge.radiusMul };
+    if (this.rapid) type = { ...type, fuse: type.fuse * ITEMS.rapidcore.fuseMul };
     const w = game.grid.toWorld(c, r);
     this.energy -= cost;
     game.deployCore(w.x, w.y, type, this.factionIndex, this.color);

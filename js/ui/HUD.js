@@ -38,6 +38,8 @@ export class HUD {
     if (p.overchargeTimer > 0) active.push(['overcharge', p.overchargeTimer, ITEMS.overcharge.duration]);
     if (p.hasteTimer > 0) active.push(['haste', p.hasteTimer, ITEMS.haste.duration]);
     if (p.cloakTimer > 0) active.push(['cloak', p.cloakTimer, ITEMS.cloak.duration]);
+    if (p.magnetTimer > 0) active.push(['magnet', p.magnetTimer, ITEMS.magnet.duration]);
+    if (p.rapidTimer > 0) active.push(['rapidcore', p.rapidTimer, ITEMS.rapidcore.duration]);
     if (!active.length) return;
 
     const r = 15, gap = 40;

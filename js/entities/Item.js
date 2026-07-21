@@ -109,6 +109,31 @@ export class Item extends Entity {
       ctx.beginPath();
       ctx.arc(0, 0, 2.4, 0, TAU);
       ctx.fill();
+    } else if (glyph === 'shield') {     // BARRIER — shield + check
+      ctx.beginPath();
+      ctx.moveTo(0, -7); ctx.lineTo(6, -4); ctx.lineTo(6, 2);
+      ctx.quadraticCurveTo(6, 7, 0, 8); ctx.quadraticCurveTo(-6, 7, -6, 2);
+      ctx.lineTo(-6, -4); ctx.closePath(); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-3, 0); ctx.lineTo(-1, 3); ctx.lineTo(4, -3); ctx.stroke();
+    } else if (glyph === 'warp') {        // BLINK — sparkle / teleport
+      ctx.beginPath();
+      ctx.moveTo(0, -8); ctx.lineTo(1.6, -1.6); ctx.lineTo(8, 0); ctx.lineTo(1.6, 1.6);
+      ctx.lineTo(0, 8); ctx.lineTo(-1.6, 1.6); ctx.lineTo(-8, 0); ctx.lineTo(-1.6, -1.6);
+      ctx.closePath(); ctx.fill();
+    } else if (glyph === 'magnet') {      // MAGNET — horseshoe
+      ctx.beginPath();
+      ctx.moveTo(-5, -6); ctx.lineTo(-5, 0);
+      ctx.quadraticCurveTo(-5, 6, 0, 6); ctx.quadraticCurveTo(5, 6, 5, 0);
+      ctx.lineTo(5, -6); ctx.stroke();
+      ctx.lineWidth = 2.6;
+      ctx.beginPath(); ctx.moveTo(-5, -6); ctx.lineTo(-5, -3.5);
+      ctx.moveTo(5, -6); ctx.lineTo(5, -3.5); ctx.stroke();
+    } else if (glyph === 'rapid') {       // RAPID CORE — fast-forward
+      ctx.beginPath();
+      ctx.moveTo(-6, -5); ctx.lineTo(-1, 0); ctx.lineTo(-6, 5); ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(0, -5); ctx.lineTo(5, 0); ctx.lineTo(0, 5); ctx.closePath(); ctx.fill();
     } else {                            // ENERGY — cell / battery
       ctx.beginPath();
       ctx.rect(-5, -6, 10, 12);

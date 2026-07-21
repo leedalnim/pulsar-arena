@@ -61,6 +61,11 @@ export class Game {
     this.coop = false;
     this.grid = null;
 
+    // Game mode: 'arena' (single match) | 'stages' (escalating progression).
+    this.mode = 'arena';
+    this.stage = 1;
+    this.botAggro = 1;        // bot difficulty multiplier (scaled by stage)
+
     // P2P networking.
     this.netRole = null;      // null (offline) | 'host' | 'client'
     this.net = null;          // NetPeer handle (browser only)
@@ -77,6 +82,7 @@ export class Game {
 
     this.onGameOver = null;   // set by main.js to surface the results screen
     this.onReturnMenu = null; // set by main.js to return to the main menu
+    this.onStageClear = null; // set by main.js to surface the stage interstitial
     this._activeChainWave = null;
     this._last = 0;
     this._raf = null;
@@ -87,11 +93,24 @@ export class Game {
   /** Build a fresh arena and spawn all combatants. */
   newMatch() {
     const isHost = this.netRole === 'host';
-    this.coop = !isHost && !!this.settings.coop;   // local coop only when offline
+    const isStages = this.mode === 'stages';
+    this.coop = !isHost && !isStages && !!this.settings.coop; // local coop: offline arena only
     this.input.setCoop(this.coop);
     const humanCount = (isHost || this.coop) ? 2 : 1;
-    const botCount = Math.min(3, Math.max(1, this.settings.botCount));
+
+    // Stage mode ramps difficulty; arena uses the player's settings.
+    let botCount, duration;
+    if (isStages) {
+      botCount = this.stage < 2 ? 1 : this.stage < 3 ? 2 : 3;
+      duration = Math.max(45, 70 - (this.stage - 1) * 5);
+      this.botAggro = Math.min(1.9, 1 + Math.max(0, this.stage - 3) * 0.12);
+    } else {
+      botCount = Math.min(3, Math.max(1, this.settings.botCount));
+      duration = this.settings.duration;
+      this.botAggro = 1;
+    }
     const factionCount = Math.min(4, humanCount + botCount);
+    this._matchDuration = duration;
 
     this.theme = THEMES[pick(THEME_ORDER)];
     const { grid, spawns } = MapGenerator.generate(factionCount, this.theme);
@@ -140,7 +159,7 @@ export class Game {
           this.territory.claim(c + dc, r + dr, p.factionIndex);
     }
 
-    this.timeLeft = this.settings.duration;
+    this.timeLeft = this._matchDuration;
     this.camera.resize(this.viewW, this.viewH);
     this.camera.shakeEnabled = this.settings.shake;
     const mid = this._humansMid();
@@ -156,6 +175,28 @@ export class Game {
   }
 
   start() {
+    this.mode = 'arena';
+    this.newMatch();
+    this.state = STATE.PLAYING;
+    this.input.flush();
+    this.input.setTouchVisible(true);
+  }
+
+  /** Begin stage mode from stage 1 (escalating difficulty). */
+  startStages() {
+    this.mode = 'stages';
+    this.stage = 1;
+    this._beginStage();
+  }
+
+  /** Advance to the next stage (called from the interstitial). */
+  nextStage() {
+    this.stage += 1;
+    this._beginStage();
+  }
+
+  _beginStage() {
+    this.mode = 'stages';
     this.newMatch();
     this.state = STATE.PLAYING;
     this.input.flush();
@@ -182,6 +223,7 @@ export class Game {
       this.onReturnMenu?.();
       return;
     }
+    if (this.mode === 'stages') { this.startStages(); return; }
     this.start();
   }
 
@@ -193,14 +235,32 @@ export class Game {
     this.netRole = null;
     this.remotePlayer = null;
     this._netReady = false;
+    this.mode = 'arena';
+    this.stage = 1;
+    this.botAggro = 1;
   }
 
   _endMatch() {
     this.state = STATE.OVER;
     this.input.setTouchVisible(false);
-    this.sound.win();
     const scores = this.scores();
     if (this.netRole === 'host' && this.net) this.net.send({ t: 'over', scores });
+
+    // Stage mode: finishing first clears the stage and advances; otherwise the
+    // run ends at the stage you reached.
+    if (this.mode === 'stages') {
+      const humanWon = scores[0] && scores[0].isHuman && scores[0].total > 0;
+      if (humanWon) {
+        this.sound.win();
+        this.onStageClear?.(this.stage, scores);
+        return;
+      }
+      this.sound.win();
+      this.onGameOver?.(scores, { stage: this.stage });
+      return;
+    }
+
+    this.sound.win();
     this.onGameOver?.(scores);
   }
 
@@ -432,7 +492,7 @@ export class Game {
   }
 
   onItemCollected(item, player) {
-    player.applyItem(item.def);
+    player.applyItem(item.def, this);
     this.particles.burst(item.x, item.baseY, item.def.color, 22, 240);
     this.particles.sparkle(item.x, item.baseY, item.def.accent || '#ffffff', 10);
     this._flashes.push({ x: item.x, y: item.baseY, t: 0, dur: 0.2, color: item.def.color });

@@ -204,8 +204,24 @@ export const ITEMS = {
     id: 'cell', glyph: 'cell', color: '#8ff6ff', accent: '#ffffff',
     label: { ko: '에너지', en: 'ENERGY' }, instant: true, // full energy refill
   },
+  barrier: {
+    id: 'barrier', glyph: 'shield', color: '#5fb8ff', accent: '#d6ecff',
+    label: { ko: '보호막', en: 'BARRIER' }, instant: true, duration: 4, // instant shield
+  },
+  blink: {
+    id: 'blink', glyph: 'warp', color: '#b06bff', accent: '#e9d6ff',
+    label: { ko: '점멸', en: 'BLINK' }, instant: true, // teleport to a random floor tile
+  },
+  magnet: {
+    id: 'magnet', glyph: 'magnet', color: '#39d98a', accent: '#c6ffe4',
+    label: { ko: '자기장', en: 'MAGNET' }, duration: 7, // auto-collects nearby shards
+  },
+  rapidcore: {
+    id: 'rapidcore', glyph: 'rapid', color: '#ff8a3c', accent: '#ffe0c0',
+    label: { ko: '쾌속코어', en: 'RAPID CORE' }, duration: 6, fuseMul: 0.4, // faster fuses
+  },
 };
-export const ITEM_ORDER = ['overcharge', 'haste', 'cloak', 'cell'];
+export const ITEM_ORDER = ['overcharge', 'haste', 'cloak', 'cell', 'barrier', 'blink', 'magnet', 'rapidcore'];
 
 export const ITEM_CFG = {
   SPAWN_INTERVAL: 9,   // seconds between item spawns

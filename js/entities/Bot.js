@@ -44,15 +44,16 @@ export class Bot extends Player {
       return;
     }
 
-    // 2. Look for a target enemy to attack.
+    // 2. Look for a target enemy to attack. Stage mode scales aggression.
+    const aggro = game.botAggro || 1;
     const enemy = this._nearestEnemy(game);
-    if (enemy && enemy.d < 190 && this.energy > 40 && this._deployCooldown <= 0) {
+    if (enemy && enemy.d < 190 * aggro && this.energy > 40 / aggro && this._deployCooldown <= 0) {
       this.state = 'HUNT';
       const toward = angleBetween(this.x, this.y, enemy.x, enemy.y);
       it.move = { x: Math.cos(toward), y: Math.sin(toward) };
-      if (enemy.d < 130) {
+      if (enemy.d < 130 * aggro) {
         it.deploy = true;
-        this._deployCooldown = rand(1.6, 2.8);
+        this._deployCooldown = rand(1.6, 2.8) / aggro;
       }
       return;
     }

@@ -27,16 +27,18 @@ export class Crystal extends Entity {
     this.spin += dt * 2;
     this.bob += dt * 3;
 
-    // Magnetise toward the nearest living player within range.
-    let nearest = null, nd = CRYSTAL_CFG.SHARD_MAGNET;
+    // Magnetise toward the nearest living player within range (much larger for
+    // a player carrying the MAGNET item).
+    let nearest = null, nd = Infinity, nrange = CRYSTAL_CFG.SHARD_MAGNET;
     for (const p of game.players) {
       if (p.downed) continue;
+      const range = p.magnetized ? CRYSTAL_CFG.SHARD_MAGNET * 4.5 : CRYSTAL_CFG.SHARD_MAGNET;
       const d = dist(this.x, this.y, p.x, p.y);
-      if (d < nd) { nd = d; nearest = p; }
+      if (d < range && d < nd) { nd = d; nearest = p; nrange = range; }
     }
     if (nearest) {
       const a = angleBetween(this.x, this.y, nearest.x, nearest.y);
-      const pull = (1 - nd / CRYSTAL_CFG.SHARD_MAGNET) * 380;
+      const pull = (1 - nd / nrange) * 380;
       this.x += Math.cos(a) * pull * dt;
       this.baseY += Math.sin(a) * pull * dt;
       if (nd < nearest.radius + 8) {

@@ -46,6 +46,7 @@ export class Menu {
     if (screen === 'settings') return this._settingsHTML(data.from || 'main');
     if (screen === 'howto') return this._howtoHTML();
     if (screen === 'pause') return this._pauseHTML();
+    if (screen === 'stage') return this._stageHTML(data);
     if (screen === 'over') return this._overHTML(data);
     return '';
   }
@@ -65,6 +66,7 @@ export class Menu {
       ${this._classPicker(T)}
       <div class="btn-col">
         <button class="btn btn-primary" data-act="start">${T.enterArena}</button>
+        <button class="btn" data-act="stages">${T.stageMode || '스테이지 모드'}</button>
         <button class="btn" data-act="online">${T.online || '온라인 1v1 (P2P)'}</button>
         <button class="btn" data-act="howto">${T.howToPlay}</button>
         <button class="btn" data-act="settings">${T.settings}</button>
@@ -165,6 +167,27 @@ export class Menu {
     </div>`;
   }
 
+  _stageHTML(data) {
+    const T = strings(this.settings.lang);
+    const next = (data.stage || 1) + 1;
+    const rows = (data.scores || []).map((s, i) => `
+      <div class="result-row ${s.isHuman ? 'you' : ''}">
+        <span class="rank">${i + 1}</span>
+        <span class="chip" style="--c:${s.color}"></span>
+        <span class="rname">${s.name}${s.isHuman ? ' ' + T.youParen : ''}</span>
+        <span class="rtotal">${s.total}</span>
+      </div>`).join('');
+    return `<div class="panel panel-wide">
+      <h2 class="winner" style="--c:#7dffa8">${(T.stageClear || 'STAGE {n} CLEAR!').replace('{n}', data.stage)}</h2>
+      <p class="howto-note">${T.nextStageHint || '다음 스테이지는 더 강해집니다.'}</p>
+      <div class="results">${rows}</div>
+      <div class="btn-col">
+        <button class="btn btn-primary" data-act="nextstage">${(T.nextStage || 'STAGE {n} →').replace('{n}', next)}</button>
+        <button class="btn btn-ghost" data-act="quit">${T.mainMenu}</button>
+      </div>
+    </div>`;
+  }
+
   _overHTML(data) {
     const T = strings(this.settings.lang);
     const rows = data.scores.map((s, i) => `
@@ -177,8 +200,11 @@ export class Menu {
         <span class="rtotal">${s.total}</span>
       </div>`).join('');
     const winner = data.scores[0];
+    const stageLine = data.stage
+      ? `<p class="stage-reached">${(T.stageReached || 'STAGE {n} 도달').replace('{n}', data.stage)}</p>` : '';
     return `<div class="panel panel-wide">
       <h2 class="winner" style="--c:${winner.color}">${T.dominates.replace('{name}', winner.name)}</h2>
+      ${stageLine}
       <div class="results">${rows}</div>
       <div class="btn-col">
         <button class="btn btn-primary" data-act="restart">${T.playAgain}</button>
@@ -202,6 +228,8 @@ export class Menu {
           case 'quit': this.cb.onQuit(); break;
           case 'settings': this.show('settings', { from: btn.dataset.from || 'main' }); break;
           case 'online': this.showOnline(); break;
+          case 'stages': this.cb.onStages?.(); break;
+          case 'nextstage': this.cb.onNextStage?.(); break;
           case 'howto': this.show('howto'); break;
           case 'back':
             this.show(btn.dataset.from === 'pause' ? 'pause' : 'main');
