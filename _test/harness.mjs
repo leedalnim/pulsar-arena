@@ -235,6 +235,9 @@ console.assert(stageGame.players.length === 2, 'boss stage is a 1v1');
 const bossBot = stageGame.players.find((p) => p.isBoss);
 console.assert(bossBot && bossBot.radius > 20, 'boss is an oversized elite');
 console.log('boss stage: 1v1 vs elite, boss radius', Math.round(bossBot.radius));
+let bossWaves = 0;
+for (let i = 0; i < 340; i++) { stageGame.update(1 / 60); bossWaves = Math.max(bossWaves, stageGame.waves.length); }
+console.assert(bossWaves > 0, 'boss stage produces pulse waves (nova + heavy cores)');
 
 // Client prediction moves the local drone immediately (no host round-trip).
 const cpx = clientGame.localPlayer.x;

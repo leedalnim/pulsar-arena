@@ -166,6 +166,10 @@ export class Game {
         boss.regenMul *= 1.7;
         boss.coreType = 'heavy';
       }
+      this.bossRef = boss || null;
+      this._bossAtk = 4;              // seconds until the first boss nova
+    } else {
+      this.bossRef = null;
     }
 
     // Seed each spawn with owned territory so scores start non-zero.
@@ -324,6 +328,7 @@ export class Game {
     this._updateEchoes(dt);
     this._updateFlashes(dt);
     this._updateItems(dt);
+    if (this.isBossStage) this._bossTick(dt);
     this._presenceClaim(dt);
 
     this.grid.update(dt);
@@ -446,6 +451,26 @@ export class Game {
     this.waves = this.waves.filter((w) => !w.dead);
     this.shards = this.shards.filter((s) => !s.dead);
     this.items = this.items.filter((i) => !i.dead);
+  }
+
+  /** Boss special: charge, then release a large "boss nova" pulse centred on it. */
+  _bossTick(dt) {
+    const boss = this.bossRef;
+    if (!boss || boss.downed) return;
+    // Telegraph flash in the last ~0.5s so players can dodge.
+    if (this._bossAtk > 0 && this._bossAtk <= 0.5 && !this._bossTele) {
+      this._bossTele = true;
+      this._flashes.push({ x: boss.x, y: boss.y, t: 0, dur: 0.5, color: '#ff3b4e' });
+    }
+    this._bossAtk -= dt;
+    if (this._bossAtk <= 0) {
+      this._bossAtk = 7;
+      this._bossTele = false;
+      const nova = { radius: this.grid.tile * 4.6, waveSpeed: 540, damage: true };
+      this.spawnPulse(boss.x, boss.y, nova, boss.factionIndex, boss.color, null);
+      this.camera.addShake(15);
+      this.sound.detonate();
+    }
   }
 
   /** Periodically drop an item pickup on a random reachable floor tile. */

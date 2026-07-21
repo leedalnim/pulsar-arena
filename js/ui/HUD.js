@@ -175,8 +175,17 @@ export class HUD {
     ctx.fillStyle = t <= 15 ? '#ff6b8a' : '#eaf3ff';
     if (t <= 15) { ctx.shadowColor = '#ff6b8a'; ctx.shadowBlur = 12; }
     // Fixed digit cells so the clock doesn't wobble as numbers change width.
-    this._drawFixed(ctx, label, W / 2, y + 21, 14);
+    this._drawFixed(ctx, label, W / 2, y + 19, 14);
     ctx.shadowBlur = 0;
+    // Leader-colour accent bar under the clock.
+    const lead = game.scores()[0];
+    if (lead && lead.total > 0) {
+      this._round(ctx, W / 2 - 22, y + 31, 44, 3, 1.5);
+      ctx.fillStyle = rgba(lead.color, 0.92);
+      ctx.shadowColor = lead.color; ctx.shadowBlur = 8;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
   }
 
   /** Stage / boss indicator under the timer (stage mode only). */
@@ -297,7 +306,9 @@ export class HUD {
     ctx.fill();
     ctx.strokeStyle = rd >= 1 ? '#22e6ff' : 'rgba(150,170,200,0.5)';
     ctx.lineWidth = 2;
+    if (rd >= 1) { ctx.shadowColor = '#22e6ff'; ctx.shadowBlur = 8; }
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.stroke();
+    ctx.shadowBlur = 0;
     ctx.fillStyle = '#eaf3ff';
     ctx.font = `700 14px ${this.font}`;
     ctx.textAlign = 'center';

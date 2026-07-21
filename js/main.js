@@ -76,8 +76,18 @@ function boot() {
   }, settings);
 
   // Game -> menu bridges.
-  game.onGameOver = (scores, extra) => menu.show('over', { scores, stage: extra?.stage });
-  game.onStageClear = (stage, scores) => menu.show('stage', { stage, scores });
+  game.onGameOver = (scores, extra) => {
+    if (extra?.stage) { // reached (were playing) stage N; best = highest cleared = N-1
+      settings.bestStage = Math.max(settings.bestStage || 0, extra.stage - 1);
+      Storage.save(settings);
+    }
+    menu.show('over', { scores, stage: extra?.stage, best: settings.bestStage });
+  };
+  game.onStageClear = (stage, scores) => {
+    settings.bestStage = Math.max(settings.bestStage || 0, stage);
+    Storage.save(settings);
+    menu.show('stage', { stage, scores, best: settings.bestStage });
+  };
   game.onPauseRequested = () => menu.show('pause');
   game.onReturnMenu = () => menu.show('main');
 

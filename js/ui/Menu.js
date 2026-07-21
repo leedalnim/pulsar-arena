@@ -66,7 +66,7 @@ export class Menu {
       ${this._classPicker(T)}
       <div class="btn-col">
         <button class="btn btn-primary" data-act="start">${T.enterArena}</button>
-        <button class="btn" data-act="stages">${T.stageMode || '스테이지 모드'}</button>
+        <button class="btn" data-act="stages">${T.stageMode || '스테이지 모드'}${this.settings.bestStage ? ` · ${(T.bestStage || 'BEST {n}').replace('{n}', this.settings.bestStage)}` : ''}</button>
         <button class="btn" data-act="online">${T.online || '온라인 1v1 (P2P)'}</button>
         <button class="btn" data-act="howto">${T.howToPlay}</button>
         <button class="btn" data-act="settings">${T.settings}</button>
@@ -179,6 +179,7 @@ export class Menu {
       </div>`).join('');
     return `<div class="panel panel-wide">
       <h2 class="winner" style="--c:#7dffa8">${(T.stageClear || 'STAGE {n} CLEAR!').replace('{n}', data.stage)}</h2>
+      ${data.best ? `<p class="stage-reached">${(T.bestStage || 'BEST {n}').replace('{n}', data.best)}</p>` : ''}
       <p class="howto-note">${T.nextStageHint || '다음 스테이지는 더 강해집니다.'}</p>
       <div class="results">${rows}</div>
       <div class="btn-col">
@@ -201,7 +202,7 @@ export class Menu {
       </div>`).join('');
     const winner = data.scores[0];
     const stageLine = data.stage
-      ? `<p class="stage-reached">${(T.stageReached || 'STAGE {n} 도달').replace('{n}', data.stage)}</p>` : '';
+      ? `<p class="stage-reached">${(T.stageReached || 'STAGE {n} 도달').replace('{n}', data.stage)}${data.best ? ` · ${(T.bestStage || 'BEST {n}').replace('{n}', data.best)}` : ''}</p>` : '';
     return `<div class="panel panel-wide">
       <h2 class="winner" style="--c:${winner.color}">${T.dominates.replace('{name}', winner.name)}</h2>
       ${stageLine}

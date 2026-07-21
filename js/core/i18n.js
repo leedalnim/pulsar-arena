@@ -26,6 +26,7 @@ const DICT = {
     nextStage: '스테이지 {n} →',
     nextStageHint: '다음 스테이지는 적이 더 많고 강해집니다.',
     stageReached: '스테이지 {n} 도달',
+    bestStage: '최고 {n}',
     mainFootnote: '오리지널 네온 아레나 — 영역을 점령하고 코어를 연쇄시키세요.',
 
     // How to play
@@ -86,6 +87,7 @@ const DICT = {
     nextStage: 'STAGE {n} →',
     nextStageHint: 'The next stage has more, tougher rivals.',
     stageReached: 'REACHED STAGE {n}',
+    bestStage: 'BEST {n}',
     howToPlay: 'HOW TO PLAY',
     settings: 'SETTINGS',
     mainFootnote: 'An original neon arena. Claim territory. Chain the cores.',
