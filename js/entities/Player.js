@@ -57,6 +57,9 @@ export class Player extends Entity {
     this.knockVx = 0;
     this.knockVy = 0;
 
+    // Boss elite (stage mode) — buffed + a menacing aura.
+    this.isBoss = false;
+
     // Abilities / timers.
     this.coreType = 'standard';
     this.dashTimer = 0;          // >0 while dashing
@@ -312,6 +315,21 @@ export class Player extends Entity {
 
     // Contact shadow grounds the unit on the floor.
     shadowEllipse(ctx, 0, this.radius * 0.62, this.radius * 1.15, this.radius * 0.5, 0.34);
+
+    // Boss aura — pulsing crimson danger ring.
+    if (this.isBoss) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const a = 0.4 + 0.28 * Math.sin(performance.now() / 150);
+      ctx.beginPath();
+      ctx.arc(0, 0, this.radius + 11, 0, TAU);
+      ctx.strokeStyle = rgba('#ff3b4e', a);
+      ctx.lineWidth = 3;
+      ctx.shadowColor = '#ff3b4e';
+      ctx.shadowBlur = 18;
+      ctx.stroke();
+      ctx.restore();
+    }
 
     // Shield bubble.
     if (this.shielded) {

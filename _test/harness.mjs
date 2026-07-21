@@ -228,6 +228,19 @@ console.assert(sp.magnetTimer > 0, 'magnet sets a timer');
 sp.applyItem(ITEMS.blink, stageGame); // must not throw (teleports to a floor tile)
 console.log('stage cleared:', clearedStage, '| items:', Object.keys(ITEMS).length, '| barrier/magnet/blink OK');
 
+// Boss stage: stage 5 is a 1v1 vs an oversized elite.
+stageGame.stage = 5; stageGame._beginStage();
+console.assert(stageGame.isBossStage, 'stage 5 is a boss stage');
+console.assert(stageGame.players.length === 2, 'boss stage is a 1v1');
+const bossBot = stageGame.players.find((p) => p.isBoss);
+console.assert(bossBot && bossBot.radius > 20, 'boss is an oversized elite');
+console.log('boss stage: 1v1 vs elite, boss radius', Math.round(bossBot.radius));
+
+// Client prediction moves the local drone immediately (no host round-trip).
+const cpx = clientGame.localPlayer.x;
+clientGame._predictLocal(1 / 60, { move: { x: 1, y: 0 } });
+console.assert(clientGame.localPlayer.x >= cpx, 'client prediction advances the local drone');
+
 // Settings persistence round-trip.
 Storage.save({ ...settings, volume: 0.42 });
 console.assert(Storage.load().volume === 0.42, 'settings persist');

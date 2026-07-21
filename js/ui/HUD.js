@@ -24,6 +24,7 @@ export class HUD {
     this._territoryBar(ctx, game, W);
     this._scoreboard(ctx, game, W);
     this._timer(ctx, game, W);
+    this._stageLabel(ctx, game, W);
     if (game.localPlayer) this._playerPanel(ctx, game, W, H);
     if (game.localPlayer) this._buffs(ctx, game.localPlayer, W, H);
     if (game.coop && game.humans[1]) this._coopPanel(ctx, game.humans[1], W, H);
@@ -77,42 +78,35 @@ export class HUD {
   }
 
   /* ---------------------------- scoreboard ------------------------------- */
+  // Slim horizontal score strip along the very top (no filled box) so the
+  // arena corners stay clear. Each faction is a chip + score; the human is
+  // marked, the leader crowned.
   _scoreboard(ctx, game, W) {
     const scores = game.scores();
-    const rowH = 20, boxW = 158, x = 14, y = 20;
-    const h = 9 + scores.length * rowH;
-
-    // Compact, translucent card so the arena stays visible through it.
-    this._round(ctx, x, y, boxW, h, 10);
-    ctx.fillStyle = 'rgba(8, 13, 23, 0.4)';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(120, 160, 220, 0.16)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    ctx.font = `700 12px ${this.font}`;
+    const y = 30, startX = 16, cellW = 58;
     scores.forEach((s, i) => {
-      const ry = y + 8 + i * rowH + rowH / 2;
+      const bx = startX + i * cellW;
       // colour chip
       ctx.beginPath();
-      ctx.arc(x + 16, ry, 5, 0, TAU);
+      ctx.arc(bx + 7, y, 6, 0, TAU);
       ctx.fillStyle = s.color;
       ctx.shadowColor = s.color;
       ctx.shadowBlur = 8;
       ctx.fill();
       ctx.shadowBlur = 0;
-      // Leader crown sits above the top-ranked faction's chip.
-      if (i === 0 && s.total > 0) this._crown(ctx, x + 16, ry - 10, 9, '#ffd76b');
-      // name
-      ctx.fillStyle = s.isHuman ? '#ffffff' : 'rgba(210,225,245,0.78)';
-      ctx.textAlign = 'left';
-      ctx.fillText(s.name + (s.isHuman ? ' ' + this.T.youTag : ''), x + 27, ry);
+      if (i === 0 && s.total > 0) this._crown(ctx, bx + 7, y - 11, 9, '#ffd76b');
+      // "you" tick under the human's chip
+      if (s.isHuman) {
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `700 8px ${this.font}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(this.T.youTag, bx + 7, y + 14);
+      }
       // score
       ctx.fillStyle = s.color;
-      ctx.textAlign = 'right';
-      ctx.font = `700 14px ${this.font}`;
-      ctx.fillText(String(s.total), x + boxW - 11, ry);
-      ctx.font = `700 12px ${this.font}`;
+      ctx.font = `700 16px ${this.font}`;
+      ctx.textAlign = 'left';
+      ctx.fillText(String(s.total), bx + 18, y);
     });
   }
 
@@ -182,6 +176,19 @@ export class HUD {
     if (t <= 15) { ctx.shadowColor = '#ff6b8a'; ctx.shadowBlur = 12; }
     // Fixed digit cells so the clock doesn't wobble as numbers change width.
     this._drawFixed(ctx, label, W / 2, y + 21, 14);
+    ctx.shadowBlur = 0;
+  }
+
+  /** Stage / boss indicator under the timer (stage mode only). */
+  _stageLabel(ctx, game, W) {
+    if (game.mode !== 'stages') return;
+    const boss = game.isBossStage;
+    const txt = boss ? `⚠ BOSS · STAGE ${game.stage}` : `STAGE ${game.stage}`;
+    ctx.font = `700 12px ${this.font}`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = boss ? '#ff5a6a' : 'rgba(210,225,245,0.85)';
+    if (boss) { ctx.shadowColor = '#ff5a6a'; ctx.shadowBlur = 10; }
+    ctx.fillText(txt, W / 2, 66);
     ctx.shadowBlur = 0;
   }
 

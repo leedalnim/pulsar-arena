@@ -65,6 +65,7 @@ export class Game {
     this.mode = 'arena';
     this.stage = 1;
     this.botAggro = 1;        // bot difficulty multiplier (scaled by stage)
+    this.isBossStage = false; // every 5th stage is a 1v1 vs an elite boss
 
     // P2P networking.
     this.netRole = null;      // null (offline) | 'host' | 'client'
@@ -101,10 +102,12 @@ export class Game {
     // Stage mode ramps difficulty; arena uses the player's settings.
     let botCount, duration;
     if (isStages) {
-      botCount = this.stage < 2 ? 1 : this.stage < 3 ? 2 : 3;
-      duration = Math.max(45, 70 - (this.stage - 1) * 5);
-      this.botAggro = Math.min(1.9, 1 + Math.max(0, this.stage - 3) * 0.12);
+      this.isBossStage = this.stage % 5 === 0;   // boss every 5th stage
+      botCount = this.isBossStage ? 1 : (this.stage < 2 ? 1 : this.stage < 3 ? 2 : 3);
+      duration = this.isBossStage ? 60 : Math.max(45, 70 - (this.stage - 1) * 5);
+      this.botAggro = this.isBossStage ? 2.0 : Math.min(1.9, 1 + Math.max(0, this.stage - 3) * 0.12);
     } else {
+      this.isBossStage = false;
       botCount = Math.min(3, Math.max(1, this.settings.botCount));
       duration = this.settings.duration;
       this.botAggro = 1;
@@ -149,6 +152,20 @@ export class Game {
     const botClasses = shuffle(CLASS_ORDER.concat(CLASS_ORDER));
     for (let i = humanCount; i < factionCount; i++) {
       this.players.push(new Bot(spawns[i].x, spawns[i].y, this.factions[i], i, botClasses[i]));
+    }
+
+    // Boss stage: buff the lone bot into an oversized, relentless elite.
+    if (isStages && this.isBossStage) {
+      const boss = this.players.find((p) => p instanceof Bot);
+      if (boss) {
+        boss.isBoss = true;
+        boss.radius *= 1.5;
+        boss.maxEnergy *= 1.9;
+        boss.energy = boss.maxEnergy;
+        boss.speedMul *= 1.1;
+        boss.regenMul *= 1.7;
+        boss.coreType = 'heavy';
+      }
     }
 
     // Seed each spawn with owned territory so scores start non-zero.
@@ -337,7 +354,8 @@ export class Game {
     const actions = this.input.poll();
     if (actions.pause) { this.pause(); this.onPauseRequested?.(); return; }
     if (this.net) this.net.send(NetSync.buildInput(actions));
-    NetSync.interpolate(this, dt);
+    this._predictLocal(dt, actions);   // move own drone immediately (no ping wait)
+    NetSync.interpolate(this, dt);      // then gently reconcile toward the host
     this.grid.update(dt);
     this.particles.update(dt);
     if (this.localPlayer) {
@@ -345,6 +363,19 @@ export class Game {
         this.grid.worldW, this.grid.worldH, dt);
     }
     this.camera.update(dt);
+  }
+
+  /** Client-side prediction: move the local drone from input right away so it
+   *  responds instantly; interpolate() then reconciles it with host snapshots. */
+  _predictLocal(dt, actions) {
+    const p = this.localPlayer;
+    if (!p || p.downed) return;
+    const mx = actions.move.x, my = actions.move.y;
+    if (mx || my) p.facing = Math.atan2(my, mx);
+    const speed = PLAYER.SPEED * (p.speedMul || 1);
+    const res = this.grid.resolveCircle(p.x + mx * speed * dt, p.y + my * speed * dt, p.radius);
+    p.x = res.x;
+    p.y = res.y;
   }
 
   /** Host: build the arena, then send the init handshake to the client. */

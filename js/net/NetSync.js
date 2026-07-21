@@ -157,11 +157,17 @@ export function applyInput(intent, msg) {
 
 /* ----------------------------- interpolation ---------------------------- */
 
-/** Smooth the client's rendered players toward the latest snapshot targets. */
+/**
+ * Smooth the client's rendered players toward the latest snapshot targets.
+ * Remote players interpolate firmly; the LOCAL player (which is predicted from
+ * input each frame) is only gently reconciled so its own movement stays snappy.
+ */
 export function interpolate(game, dt) {
-  const k = Math.min(1, dt * 16);
+  const kOther = Math.min(1, dt * 16);
+  const kLocal = Math.min(1, dt * 3);
   for (const p of game.players) {
     if (p._tx === undefined) continue;
+    const k = p === game.localPlayer ? kLocal : kOther;
     p.x += (p._tx - p.x) * k;
     p.y += (p._ty - p.y) * k;
   }
