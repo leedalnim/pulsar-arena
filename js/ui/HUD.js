@@ -300,40 +300,91 @@ export class HUD {
     ctx.fillText(label, cx, cy + r + 8);
   }
 
-  /* ------------------------------ minimap -------------------------------- */
+  /* ------------------------------ radar ---------------------------------- */
+  // Circular radar (concept-art style): territory map clipped to a disc, with
+  // concentric rings, a rotating sweep, item blips and player dots.
   _minimap(ctx, game, W, H) {
-    const size = 132, pad = 16;
-    const x = W - size - pad, y = H - size - pad;
-    this._panel(ctx, x, y, size, size, 12);
+    const R = 62, pad = 18;
+    const cx = W - R - pad, cy = H - R - pad;
     const grid = game.grid;
-    const sx = (size - 12) / grid.cols, sy = (size - 12) / grid.rows;
-    const ox = x + 6, oy = y + 6;
 
-    // Territory + walls.
+    // Disc panel.
+    ctx.beginPath();
+    ctx.arc(cx, cy, R + 7, 0, TAU);
+    ctx.fillStyle = 'rgba(8,13,23,0.5)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(120,160,220,0.28)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    const s = (2 * R) / Math.max(grid.worldW, grid.worldH);
+    const ox = cx - (grid.worldW * s) / 2, oy = cy - (grid.worldH * s) / 2;
+    const cell = grid.tile * s;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, TAU);
+    ctx.clip();
+    ctx.fillStyle = 'rgba(18,28,46,0.55)';
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.fill();
+
+    // Walls (faint) + owned territory (faction-tinted).
     for (let r = 0; r < grid.rows; r++) {
       for (let c = 0; c < grid.cols; c++) {
         const type = grid.get(c, r);
         const owner = game.territory.owner[r * grid.cols + c];
-        if (type === TILE.WALL) {
-          ctx.fillStyle = 'rgba(90,120,160,0.35)';
-          ctx.fillRect(ox + c * sx, oy + r * sy, sx, sy);
-        } else if (owner > 0) {
-          ctx.fillStyle = rgba(game.factions[owner - 1].color, 0.5);
-          ctx.fillRect(ox + c * sx, oy + r * sy, sx, sy);
-        }
+        if (type === TILE.WALL) ctx.fillStyle = 'rgba(90,120,160,0.28)';
+        else if (owner > 0) ctx.fillStyle = rgba(game.factions[owner - 1].color, 0.5);
+        else continue;
+        ctx.fillRect(ox + c * cell, oy + r * cell, cell + 0.6, cell + 0.6);
       }
     }
+    // Item blips.
+    for (const it of game.items || []) {
+      ctx.fillStyle = rgba(it.def.color, 0.95);
+      ctx.beginPath();
+      ctx.arc(ox + it.x * s, oy + it.baseY * s, 2, 0, TAU);
+      ctx.fill();
+    }
+    // Rotating radar sweep.
+    const ang = (performance.now() / 1400) % 1 * TAU;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, R, ang - 0.55, ang);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(120,230,255,0.09)';
+    ctx.fill();
+    ctx.strokeStyle = rgba('#78e6ff', 0.5);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(ang) * R, cy + Math.sin(ang) * R);
+    ctx.stroke();
     // Players.
     for (const p of game.players) {
       if (p.downed) continue;
-      const px = ox + (p.x / grid.worldW) * (size - 12);
-      const py = oy + (p.y / grid.worldH) * (size - 12);
+      const px = ox + p.x * s, py = oy + p.y * s;
       ctx.beginPath();
-      ctx.arc(px, py, p.isHuman ? 3.5 : 2.5, 0, TAU);
+      ctx.arc(px, py, p.isHuman ? 3.4 : 2.6, 0, TAU);
       ctx.fillStyle = p.color;
       ctx.shadowColor = p.color; ctx.shadowBlur = 6;
       ctx.fill(); ctx.shadowBlur = 0;
+      if (p.isHuman) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.arc(px, py, 5.4, 0, TAU); ctx.stroke();
+      }
     }
+    ctx.restore();
+
+    // Rings + crosshair on top of the clip.
+    ctx.strokeStyle = 'rgba(120,180,240,0.14)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, R * 0.5, 0, TAU); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy);
+    ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R);
+    ctx.stroke();
   }
 
   /* ------------------------------ helpers -------------------------------- */
