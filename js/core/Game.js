@@ -645,11 +645,12 @@ export class Game {
   /* ------------------------------- scoring ------------------------------- */
 
   scores() {
+    const named = (this.settings.playerName || '').trim();
     const arr = this.players.map((p) => {
       const tiles = this.territory.tileCount(p.factionIndex);
       const crystals = p.crystals;
       return {
-        name: p.faction.name,
+        name: (p === this.localPlayer && named) ? named : p.faction.name,
         color: p.color,
         isHuman: p.isHuman,
         factionIndex: p.factionIndex,

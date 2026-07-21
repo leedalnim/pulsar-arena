@@ -23,6 +23,12 @@ export class Bot extends Player {
     this._decisionTimer = 0;
     this._wanderAngle = rand(0, Math.PI * 2);
     this._deployCooldown = rand(1, 3);
+    // Stuck detection (so bots don't wedge against walls / corners / edges).
+    this._lastX = x; this._lastY = y;
+    this._wantMove = false;
+    this._stuckT = 0;
+    this._escapeT = 0;
+    this._escapeAngle = 0;
   }
 
   think(dt, game) {
@@ -31,6 +37,27 @@ export class Bot extends Player {
     it.deploy = it.dash = it.shield = it.cycle = false;
     this._decisionTimer -= dt;
     this._deployCooldown -= dt;
+
+    // --- Unstick: if we wanted to move last frame but barely did, escape. ---
+    const moved = Math.hypot(this.x - this._lastX, this.y - this._lastY);
+    if (this._escapeT > 0) {
+      this._escapeT -= dt;
+      it.move = { x: Math.cos(this._escapeAngle), y: Math.sin(this._escapeAngle) };
+      if (this.dashCd <= 0 && this._escapeT > 0.35) it.dash = true; // burst free
+      this._remember();
+      return;
+    }
+    if (this._wantMove && moved < 0.6) this._stuckT += dt; else this._stuckT = 0;
+    if (this._stuckT > 0.35) {
+      this._stuckT = 0;
+      // Head back toward the arena centre with jitter to un-wedge.
+      const toCenter = angleBetween(this.x, this.y, game.grid.worldW / 2, game.grid.worldH / 2);
+      this._escapeAngle = toCenter + rand(-0.9, 0.9);
+      this._escapeT = 0.55;
+      it.move = { x: Math.cos(this._escapeAngle), y: Math.sin(this._escapeAngle) };
+      this._remember();
+      return;
+    }
 
     // 1. Assess danger from pulse waves and armed cores.
     const danger = this._nearestDanger(game);
@@ -41,6 +68,7 @@ export class Bot extends Player {
       // Emergency abilities.
       if (this.shieldCd <= 0 && danger.d < danger.range * 0.5) it.shield = true;
       else if (this.dashCd <= 0) it.dash = true;
+      this._remember();
       return;
     }
 
@@ -55,6 +83,7 @@ export class Bot extends Player {
         it.deploy = true;
         this._deployCooldown = rand(1.6, 2.8) / aggro;
       }
+      this._remember();
       return;
     }
 
@@ -79,6 +108,14 @@ export class Bot extends Player {
       }
       it.move = { x: Math.cos(this._wanderAngle), y: Math.sin(this._wanderAngle) };
     }
+    this._remember();
+  }
+
+  /** Record this frame's position + move-intent for next-frame stuck detection. */
+  _remember() {
+    this._lastX = this.x;
+    this._lastY = this.y;
+    this._wantMove = !!(this.intent.move.x || this.intent.move.y);
   }
 
   _nearestDanger(game) {

@@ -61,8 +61,13 @@ export class Menu {
 
   _mainHTML() {
     const T = strings(this.settings.lang);
+    const nm = (this.settings.playerName || '').replace(/[<>&"']/g, '');
     return `<div class="panel panel-main">
       ${this._logo(T)}
+      <div class="name-row">
+        <input class="name-input" type="text" maxlength="12" spellcheck="false"
+          placeholder="${T.namePlaceholder || '이름 입력'}" value="${nm}">
+      </div>
       ${this._classPicker(T)}
       <div class="btn-col">
         <button class="btn btn-primary" data-act="start">${T.enterArena}</button>
@@ -238,6 +243,15 @@ export class Menu {
         }
       });
     });
+
+    // Player name input (main screen) — persisted live; no re-render on typing.
+    const nameInput = this.root.querySelector('.name-input');
+    if (nameInput) {
+      nameInput.addEventListener('input', () => {
+        this.settings.playerName = nameInput.value.replace(/[<>&"']/g, '').slice(0, 12);
+        this.cb.onSettingsChange(this.settings);
+      });
+    }
 
     // Drone class selection (main screen).
     q('[data-cls]').forEach((card) => {

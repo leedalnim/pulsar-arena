@@ -245,6 +245,10 @@ const cpx = clientGame.localPlayer.x;
 clientGame._predictLocal(1 / 60, { move: { x: 1, y: 0 } });
 console.assert(clientGame.localPlayer.x >= cpx, 'client prediction advances the local drone');
 
+// Player name shows up in the scoreboard for the human.
+game.settings.playerName = 'HERO';
+console.assert(game.scores().some((s) => s.isHuman && s.name === 'HERO'), 'player name used in scores');
+
 // Settings persistence round-trip.
 Storage.save({ ...settings, volume: 0.42 });
 console.assert(Storage.load().volume === 0.42, 'settings persist');
