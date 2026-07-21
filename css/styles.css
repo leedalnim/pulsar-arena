@@ -199,6 +199,19 @@ h2 {
 .cls-card.sel .cls-name { color: var(--c); }
 .cls-role { font-size: 10px; letter-spacing: 1px; color: var(--ink-dim); margin-top: 1px; }
 
+/* ------------------------------ online (P2P) ---------------------------- */
+.net-lbl { display: block; text-align: left; font-size: 12px; color: var(--ink-dim); margin: 12px 0 6px; letter-spacing: .5px; }
+.net-code, .net-in {
+  width: 100%; box-sizing: border-box; height: 64px; resize: vertical;
+  background: rgba(6, 10, 18, 0.7); color: var(--ink);
+  border: 1px solid var(--panel-brd); border-radius: 10px;
+  padding: 8px 10px; font-family: ui-monospace, monospace; font-size: 11px; line-height: 1.4;
+  word-break: break-all;
+}
+.net-code { color: #9fe8ff; }
+.net-status { min-height: 16px; }
+.net-ok { color: #7dffa8; font-weight: 700; letter-spacing: 1px; margin: 10px 0; }
+
 /* ------------------------------ how to play ----------------------------- */
 .howto-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px;

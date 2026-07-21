@@ -65,6 +65,7 @@ export class Menu {
       ${this._classPicker(T)}
       <div class="btn-col">
         <button class="btn btn-primary" data-act="start">${T.enterArena}</button>
+        <button class="btn" data-act="online">${T.online || '온라인 1v1 (P2P)'}</button>
         <button class="btn" data-act="howto">${T.howToPlay}</button>
         <button class="btn" data-act="settings">${T.settings}</button>
       </div>
@@ -200,6 +201,7 @@ export class Menu {
           case 'restart': this.cb.onRestart(); break;
           case 'quit': this.cb.onQuit(); break;
           case 'settings': this.show('settings', { from: btn.dataset.from || 'main' }); break;
+          case 'online': this.showOnline(); break;
           case 'howto': this.show('howto'); break;
           case 'back':
             this.show(btn.dataset.from === 'pause' ? 'pause' : 'main');
@@ -255,6 +257,137 @@ export class Menu {
         tg.textContent = s[key] ? T.on : T.off;
         this.cb.onSettingsChange(s);
         this.cb.onUI?.();
+      });
+    });
+  }
+
+  /* ------------------------- online (P2P) 1v1 ---------------------------- */
+  _netStrings() {
+    return this.settings.lang === 'en' ? {
+      title: 'ONLINE 1v1 (P2P)',
+      hint: 'No server needed — connect by exchanging codes (copy/paste). Works over the internet peer-to-peer.',
+      host: 'Create Room (Host)', join: 'Join a Room', back: 'Back',
+      step1: '1. Send this code to your opponent',
+      step2: "2. Paste your opponent's answer code here",
+      copy: 'Copy code', copied: 'Copied!', connect: 'Connect',
+      connecting: 'Connecting…', fail: 'Failed: ',
+      jStep1: "1. Paste the host's code", jGen: 'Generate answer',
+      jStep2: '2. Send this answer code back to the host',
+      wait: 'Waiting…', connected: 'Connected!', startMatch: 'Start Match',
+      waitHost: 'Connected! The match starts when the host begins.',
+      gen: 'Generating…',
+    } : {
+      title: '온라인 1v1 (P2P)',
+      hint: '서버 없이 코드만 주고받으면(복사·붙여넣기) 연결됩니다. 인터넷 P2P로 동작해요.',
+      host: '방 만들기 (호스트)', join: '방 참가하기', back: '뒤로',
+      step1: '1. 이 코드를 상대에게 보내세요',
+      step2: '2. 상대의 응답 코드를 아래에 붙여넣으세요',
+      copy: '코드 복사', copied: '복사됨!', connect: '연결',
+      connecting: '연결 중…', fail: '실패: ',
+      jStep1: '1. 호스트가 준 코드를 붙여넣으세요', jGen: '응답 코드 생성',
+      jStep2: '2. 이 응답 코드를 호스트에게 다시 보내세요',
+      wait: '대기 중…', connected: '연결됨!', startMatch: '게임 시작',
+      waitHost: '연결됨! 호스트가 시작하면 자동으로 시작됩니다.',
+      gen: '생성 중…',
+    };
+  }
+
+  showOnline() {
+    this.screen = 'online';
+    this.root.style.display = 'flex';
+    this._online('home');
+  }
+
+  /** Called by main.js when the data channel opens. */
+  netOpen(isHost) {
+    if (this.screen !== 'online') return;
+    this._online(isHost ? 'hostready' : 'joinready');
+  }
+
+  _online(state, data = {}) {
+    const L = this._netStrings();
+    const ta = (cls, val, ph, ro) =>
+      `<textarea class="${cls}" ${ro ? 'readonly' : ''} placeholder="${ph || ''}">${val || ''}</textarea>`;
+    let body;
+    if (state === 'home') {
+      body = `<p class="howto-note">${L.hint}</p>
+        <div class="btn-col">
+          <button class="btn btn-primary" data-on="host">${L.host}</button>
+          <button class="btn" data-on="join">${L.join}</button>
+          <button class="btn btn-ghost" data-on="back">${L.back}</button>
+        </div>`;
+    } else if (state === 'host') {
+      this._lastOffer = data.offer || this._lastOffer || '';
+      body = `<label class="net-lbl">${L.step1}</label>
+        ${ta('net-code', this._lastOffer, '', true)}
+        <button class="btn" data-on="copy">${L.copy}</button>
+        <label class="net-lbl">${L.step2}</label>
+        ${ta('net-in', '', 'answer code', false)}
+        <div class="btn-col">
+          <button class="btn btn-primary" data-on="hostconnect">${L.connect}</button>
+          <button class="btn btn-ghost" data-on="back">${L.back}</button>
+        </div>
+        <p class="howto-note net-status">${data.status || ''}</p>`;
+    } else if (state === 'hostready') {
+      body = `<p class="net-ok">${L.connected}</p>
+        <div class="btn-col"><button class="btn btn-primary" data-on="hoststart">${L.startMatch}</button></div>`;
+    } else if (state === 'join') {
+      body = `<label class="net-lbl">${L.jStep1}</label>
+        ${ta('net-in', '', 'host code', false)}
+        <div class="btn-col">
+          <button class="btn btn-primary" data-on="joingen">${L.jGen}</button>
+          <button class="btn btn-ghost" data-on="back">${L.back}</button>
+        </div>
+        <p class="howto-note net-status">${data.status || ''}</p>`;
+    } else if (state === 'joinanswer') {
+      body = `<label class="net-lbl">${L.jStep2}</label>
+        ${ta('net-code', data.answer, '', true)}
+        <button class="btn" data-on="copy">${L.copy}</button>
+        <p class="howto-note net-status">${L.wait}</p>`;
+    } else if (state === 'joinready') {
+      body = `<p class="net-ok">${L.connected}</p><p class="howto-note">${L.waitHost}</p>`;
+    }
+    this.root.innerHTML = `<div class="panel panel-wide"><h2>${L.title}</h2>${body}</div>`;
+    this._bindOnline(L);
+  }
+
+  _bindOnline(L) {
+    this.root.querySelectorAll('[data-on]').forEach((b) => {
+      b.addEventListener('click', async () => {
+        const act = b.dataset.on;
+        this.cb.onUI?.();
+        if (act === 'back') { this.show('main'); return; }
+        if (act === 'copy') {
+          const el = this.root.querySelector('.net-code');
+          if (el) { el.select(); try { document.execCommand('copy'); } catch { /* */ }
+            try { navigator.clipboard?.writeText(el.value); } catch { /* */ }
+            b.textContent = L.copied; }
+          return;
+        }
+        if (act === 'host') {
+          this._online('host', { offer: L.gen });
+          try { const offer = await this.cb.net.hostCreateOffer(); this._online('host', { offer }); }
+          catch (e) { this._online('host', { status: L.fail + e.message }); }
+          return;
+        }
+        if (act === 'hostconnect') {
+          const ans = (this.root.querySelector('.net-in')?.value || '').trim();
+          if (!ans) return;
+          this._online('host', { status: L.connecting });
+          try { await this.cb.net.hostAcceptAnswer(ans); }
+          catch (e) { this._online('host', { status: L.fail + e.message }); }
+          return;
+        }
+        if (act === 'join') { this._online('join'); return; }
+        if (act === 'joingen') {
+          const off = (this.root.querySelector('.net-in')?.value || '').trim();
+          if (!off) return;
+          this._online('join', { status: L.gen });
+          try { const answer = await this.cb.net.joinAcceptOffer(off); this._online('joinanswer', { answer }); }
+          catch (e) { this._online('join', { status: L.fail + e.message }); }
+          return;
+        }
+        if (act === 'hoststart') { this.cb.onNetHostStart?.(); return; }
       });
     });
   }

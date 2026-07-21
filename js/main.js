@@ -13,6 +13,7 @@ import { SoundManager } from './core/SoundManager.js';
 import { ParticleSystem } from './core/ParticleSystem.js';
 import { Storage } from './core/Storage.js';
 import { Menu } from './ui/Menu.js';
+import { NetPeer } from './net/NetPeer.js';
 import { STATE } from './core/constants.js';
 
 function boot() {
@@ -33,6 +34,23 @@ function boot() {
     game.resize(window.innerWidth, window.innerHeight, dpr);
   }
 
+  /* ------------------------------ networking ----------------------------- */
+  // P2P 1v1 over WebRTC with manual (copy-paste) signaling — no server.
+  let net = null;
+  function wireNet(n) {
+    n.onOpen = () => menu.netOpen(n.isHost);
+    n.onClose = () => {
+      if (game.netRole) { game.quitToMenu(); menu.show('main'); }
+    };
+    n.onMessage = (m) => {
+      if (!m || typeof m !== 'object') return;
+      if (m.t === 'in') game.setRemoteInput(m);              // host <- client input
+      else if (m.t === 'init') { sound.unlock(); game.applyNetInit(net, m); menu.hide(); }
+      else if (m.t === 's') game.applyNetSnapshot(m);        // client <- snapshot
+      else if (m.t === 'over') { game.state = STATE.OVER; menu.show('over', { scores: m.scores }); }
+    };
+  }
+
   /* ------------------------------- menu ---------------------------------- */
   const menu = new Menu(overlay, {
     onStart: () => { sound.unlock(); game.start(); menu.hide(); },
@@ -46,11 +64,19 @@ function boot() {
       game.camera.shakeEnabled = s.shake;
     },
     onUI: () => sound.ui(),
+    // Online (P2P) signaling callbacks.
+    net: {
+      hostCreateOffer: async () => { net = new NetPeer(); wireNet(net); return net.createOffer(); },
+      hostAcceptAnswer: async (ans) => { await net.acceptAnswer(ans); },
+      joinAcceptOffer: async (off) => { net = new NetPeer(); wireNet(net); return net.acceptOfferCreateAnswer(off); },
+    },
+    onNetHostStart: () => { sound.unlock(); game.startNetHost(net, null); menu.hide(); },
   }, settings);
 
   // Game -> menu bridges.
   game.onGameOver = (scores) => menu.show('over', { scores });
   game.onPauseRequested = () => menu.show('pause');
+  game.onReturnMenu = () => menu.show('main');
 
   /* ------------------------------ lifecycle ------------------------------ */
   window.addEventListener('resize', fit);

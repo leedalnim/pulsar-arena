@@ -25,6 +25,7 @@ import { PulseWave } from '../entities/PulseWave.js';
 import { Crystal } from '../entities/Crystal.js';
 import { Item } from '../entities/Item.js';
 import { HUD } from '../ui/HUD.js';
+import * as NetSync from '../net/NetSync.js';
 
 export class Game {
   constructor(canvas, settings, sound, input, particles) {
@@ -59,6 +60,15 @@ export class Game {
     this.humans = [];         // 1 (solo) or 2 (local coop) human players
     this.coop = false;
     this.grid = null;
+
+    // P2P networking.
+    this.netRole = null;      // null (offline) | 'host' | 'client'
+    this.net = null;          // NetPeer handle (browser only)
+    this.remotePlayer = null; // host: the joined client's player
+    this.netRemoteClass = null;
+    this.remoteInput = { move: { x: 0, y: 0 }, deploy: false, dash: false, shield: false, cycle: false };
+    this._snapAcc = 0;
+    this._netReady = false;
     this.territory = null;
     this.timeLeft = 0;
     this._presenceAcc = 0;
@@ -66,6 +76,7 @@ export class Game {
     this._bg = this._makeBackdrop();
 
     this.onGameOver = null;   // set by main.js to surface the results screen
+    this.onReturnMenu = null; // set by main.js to return to the main menu
     this._activeChainWave = null;
     this._last = 0;
     this._raf = null;
@@ -75,9 +86,10 @@ export class Game {
 
   /** Build a fresh arena and spawn all combatants. */
   newMatch() {
-    this.coop = !!this.settings.coop;
+    const isHost = this.netRole === 'host';
+    this.coop = !isHost && !!this.settings.coop;   // local coop only when offline
     this.input.setCoop(this.coop);
-    const humanCount = this.coop ? 2 : 1;
+    const humanCount = (isHost || this.coop) ? 2 : 1;
     const botCount = Math.min(3, Math.max(1, this.settings.botCount));
     const factionCount = Math.min(4, humanCount + botCount);
 
@@ -102,7 +114,14 @@ export class Game {
     this.localPlayer = new Player(spawns[0].x, spawns[0].y, this.factions[0], 0, true, humanClass);
     this.players.push(this.localPlayer);
     this.humans.push(this.localPlayer);
-    if (this.coop) {
+    this.remotePlayer = null;
+    if (isHost) {
+      // Faction 1 is the joined client's human, driven by network input.
+      const rc = this.netRemoteClass || CLASS_ORDER.find((c) => c !== humanClass) || 'nova';
+      this.remotePlayer = new Player(spawns[1].x, spawns[1].y, this.factions[1], 1, true, rc);
+      this.players.push(this.remotePlayer);
+      this.humans.push(this.remotePlayer);
+    } else if (this.coop) {
       const p2class = CLASS_ORDER.find((c) => c !== humanClass) || 'nova';
       const p2 = new Player(spawns[1].x, spawns[1].y, this.factions[1], 1, true, p2class);
       this.players.push(p2);
@@ -157,18 +176,32 @@ export class Game {
     this._last = performance.now();
   }
 
-  restart() { this.start(); }
+  restart() {
+    if (this.netRole) {          // online matches can't be restarted locally
+      this.quitToMenu();
+      this.onReturnMenu?.();
+      return;
+    }
+    this.start();
+  }
 
   quitToMenu() {
     this.state = STATE.MENU;
     this.input.setTouchVisible(false);
+    if (this.net) { try { this.net.close(); } catch { /* ignore */ } }
+    this.net = null;
+    this.netRole = null;
+    this.remotePlayer = null;
+    this._netReady = false;
   }
 
   _endMatch() {
     this.state = STATE.OVER;
     this.input.setTouchVisible(false);
     this.sound.win();
-    this.onGameOver?.(this.scores());
+    const scores = this.scores();
+    if (this.netRole === 'host' && this.net) this.net.send({ t: 'over', scores });
+    this.onGameOver?.(scores);
   }
 
   /* ------------------------------- loop ---------------------------------- */
@@ -191,11 +224,18 @@ export class Game {
   /* ------------------------------ update --------------------------------- */
 
   update(dt) {
+    if (this.netRole === 'client') { this._clientTick(dt); return; }
+
     // Input -> local player intent + pause handling.
     const actions = this.input.poll();
     if (actions.pause) { this.pause(); this.onPauseRequested?.(); return; }
     if (this.localPlayer) this.localPlayer.applyIntent(actions);
     if (this.coop && this.humans[1]) this.humans[1].applyIntent(this.input.poll2());
+    if (this.netRole === 'host' && this.remotePlayer) {
+      this.remotePlayer.applyIntent(this.remoteInput);
+      // Consume edge actions so each press fires exactly once.
+      this.remoteInput.deploy = this.remoteInput.dash = this.remoteInput.shield = this.remoteInput.cycle = false;
+    }
 
     // Entities.
     for (const p of this.players) p.update(dt, this);
@@ -222,6 +262,60 @@ export class Game {
     if (this.timeLeft <= 0) { this.timeLeft = 0; this._endMatch(); }
 
     this._cull();
+
+    // Host: broadcast authoritative state to the client (~20 Hz).
+    if (this.netRole === 'host' && this.net) {
+      this._snapAcc += dt;
+      if (this._snapAcc >= 0.05) { this._snapAcc = 0; this.net.send(NetSync.buildSnapshot(this)); }
+    }
+  }
+
+  /* ----------------------------- net (P2P) ------------------------------- */
+
+  /** Client-side frame: send input, interpolate rendered state, move camera. */
+  _clientTick(dt) {
+    const actions = this.input.poll();
+    if (actions.pause) { this.pause(); this.onPauseRequested?.(); return; }
+    if (this.net) this.net.send(NetSync.buildInput(actions));
+    NetSync.interpolate(this, dt);
+    this.grid.update(dt);
+    this.particles.update(dt);
+    if (this.localPlayer) {
+      this.camera.follow(this.localPlayer.x, this.localPlayer.y,
+        this.grid.worldW, this.grid.worldH, dt);
+    }
+    this.camera.update(dt);
+  }
+
+  /** Host: build the arena, then send the init handshake to the client. */
+  startNetHost(net, remoteClass) {
+    this.net = net;
+    this.netRole = 'host';
+    this.netRemoteClass = remoteClass || null;
+    this.remoteInput = { move: { x: 0, y: 0 }, deploy: false, dash: false, shield: false, cycle: false };
+    this._snapAcc = 0;
+    this.start();                       // newMatch() (host mode) + state PLAYING
+    if (this.net) this.net.send(NetSync.buildInit(this));
+  }
+
+  /** Host: apply the latest input message from the client. */
+  setRemoteInput(msg) { NetSync.applyInput(this.remoteInput, msg); }
+
+  /** Client: build the world from the host's handshake. */
+  applyNetInit(net, init) {
+    this.net = net;
+    this.input.setCoop(false);
+    NetSync.applyInit(this, init);
+    this.input.flush();
+    this.input.setTouchVisible(true);
+    if (this.localPlayer) this.camera.snapTo(this.localPlayer.x, this.localPlayer.y);
+  }
+
+  /** Client: apply an authoritative snapshot. */
+  applyNetSnapshot(snap) {
+    const first = !this._netReady;
+    NetSync.applySnapshot(this, snap);
+    if (first && this.localPlayer) this.camera.snapTo(this.localPlayer.x, this.localPlayer.y);
   }
 
   /** Players slowly claim the tile beneath them by presence. */

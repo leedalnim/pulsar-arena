@@ -172,6 +172,37 @@ console.assert(coopGame.players.length === 4, 'coop still fills to four factions
 for (let i = 0; i < 60; i++) { coopGame.update(1 / 60); coopGame.render(); }
 console.log('local 2P humans:', humans.length, '| classes:', humans.map((h) => h.classId).join(', '));
 
+// --- P2P netcode loopback (no WebRTC): host state -> client mirror ---
+const NetSync = await import('../js/net/NetSync.js');
+const noInput = { poll: () => ({ move: { x: 0, y: 0 } }), poll2: () => ({ move: { x: 0, y: 0 } }),
+  setTouchVisible() {}, setCoop() {}, flush() {} };
+const netStub = { send() {}, close() {} };
+const hostGame = new Game(new CanvasStub(), { ...Storage.load(), sfx: false, botCount: 2, duration: 30 }, sound, noInput, new ParticleSystem());
+hostGame.onGameOver = () => {}; hostGame.onPauseRequested = () => {};
+hostGame.resize(1280, 720, 1);
+hostGame.startNetHost(netStub, 'nova');
+console.assert(hostGame.netRole === 'host', 'host role set');
+console.assert(hostGame.remotePlayer && hostGame.remotePlayer.factionIndex === 1, 'remote player is faction 1');
+
+const clientGame = new Game(new CanvasStub(), { ...Storage.load(), sfx: false }, sound, noInput, new ParticleSystem());
+clientGame.onGameOver = () => {}; clientGame.onPauseRequested = () => {};
+clientGame.resize(1280, 720, 1);
+clientGame.applyNetInit(netStub, NetSync.buildInit(hostGame));
+console.assert(clientGame.players.length === hostGame.players.length, 'client roster matches host');
+console.assert(clientGame.grid.cells.length === hostGame.grid.cells.length, 'client map matches host');
+console.assert(clientGame.netRole === 'client', 'client role set');
+
+// Client sends "move right"; host applies it to the remote player, then syncs.
+hostGame.setRemoteInput({ t: 'in', mx: 1, my: 0, d: 0, da: 0, s: 0, c: 0 });
+for (let i = 0; i < 40; i++) hostGame.update(1 / 60);
+clientGame.applyNetSnapshot(NetSync.buildSnapshot(hostGame));
+const hRemote = hostGame.players.find((p) => p.factionIndex === 1);
+const cRemote = clientGame.players.find((p) => p.factionIndex === 1);
+console.assert(Math.abs(cRemote._tx - hRemote.x) < 1.5 && Math.abs(cRemote._ty - hRemote.y) < 1.5, 'client mirrors host remote position');
+console.assert(Math.abs(clientGame.timeLeft - hostGame.timeLeft) < 0.05, 'client clock synced from snapshot');
+console.log('P2P loopback: remote input moved host player to',
+  Math.round(hRemote.x) + ',' + Math.round(hRemote.y), '| client mirrored + clock synced');
+
 // Settings persistence round-trip.
 Storage.save({ ...settings, volume: 0.42 });
 console.assert(Storage.load().volume === 0.42, 'settings persist');

@@ -54,6 +54,15 @@ npm test      # headless smoke test
 deploy, `/` dash, `'` shield, `.` cycle). The camera frames both, and bots fill
 the remaining slots.
 
+**Online 1v1 (P2P)** — *Online 1v1* on the main menu connects two browsers over
+WebRTC with **no server**: manual copy-paste signaling. The host creates a room
+and shares the generated code; the guest pastes it and returns an answer code;
+the host pastes that back. Game traffic then flows peer-to-peer. The host runs
+the authoritative simulation (including bots) and streams state ~20×/s; the
+guest sends input and renders the received state. Because it needs no backend it
+runs from the static site as-is; a small signaling server could later replace
+the copy-paste step for smoother matchmaking.
+
 ---
 
 ## Gameplay systems
@@ -116,6 +125,9 @@ pulsar-arena/
     │   ├── SoundManager.js    # procedural Web Audio SFX
     │   ├── ParticleSystem.js  # pooled particles
     │   └── Storage.js         # LocalStorage settings
+    ├── net/
+    │   ├── NetPeer.js         # WebRTC data channel + copy-paste signaling
+    │   └── NetSync.js         # host-authoritative state serialization/sync
     ├── world/
     │   ├── Grid.js            # tiles, collision, tile rendering
     │   ├── MapGenerator.js    # procedural arena generation

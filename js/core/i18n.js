@@ -20,6 +20,7 @@ const DICT = {
     howToPlay: '게임 방법',
     settings: '설정',
     chooseDrone: '드론 선택',
+    online: '온라인 1v1 (P2P)',
     mainFootnote: '오리지널 네온 아레나 — 영역을 점령하고 코어를 연쇄시키세요.',
 
     // How to play
@@ -74,6 +75,7 @@ const DICT = {
     tagline: 'ENERGY\u00A0CORE\u00A0ARENA',
     enterArena: 'ENTER ARENA',
     chooseDrone: 'CHOOSE YOUR DRONE',
+    online: 'ONLINE 1v1 (P2P)',
     howToPlay: 'HOW TO PLAY',
     settings: 'SETTINGS',
     mainFootnote: 'An original neon arena. Claim territory. Chain the cores.',
