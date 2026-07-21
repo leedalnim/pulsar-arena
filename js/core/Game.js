@@ -301,6 +301,7 @@ export class Game {
 
   onCoreDetonated(core) {
     this.particles.burst(core.x, core.y, core.color, 20, 260);
+    this.sound.detonate();
   }
 
   onTeleport(player) {

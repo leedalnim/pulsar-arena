@@ -81,7 +81,8 @@ export class EnergyCore extends Entity {
       for (const other of game.cores) {
         if (other === this || other.dead || other.detonated) continue;
         const dx = other.x - this.x, dy = other.y - this.y;
-        if (dx * dx + dy * dy <= m2) {
+        if (dx * dx + dy * dy <= m2
+            && !game.grid.lineBlockedByWall(this.x, this.y, other.x, other.y)) {
           const inward = Math.atan2(this.y - other.y, this.x - other.x);
           game.particles.trail(other.x, other.y, this.color, inward, 5);
           other.chainTrigger(game);
