@@ -77,34 +77,40 @@ export class HUD {
   /* ---------------------------- scoreboard ------------------------------- */
   _scoreboard(ctx, game, W) {
     const scores = game.scores();
-    const pad = 16, rowH = 26, boxW = 210;
-    const x = pad, y = pad;
+    const rowH = 20, boxW = 158, x = 14, y = 20;
+    const h = 9 + scores.length * rowH;
 
-    this._panel(ctx, x, y, boxW, 12 + scores.length * rowH, 12);
+    // Compact, translucent card so the arena stays visible through it.
+    this._round(ctx, x, y, boxW, h, 10);
+    ctx.fillStyle = 'rgba(8, 13, 23, 0.4)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(120, 160, 220, 0.16)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
 
-    ctx.font = `700 13px ${this.font}`;
+    ctx.font = `700 12px ${this.font}`;
     scores.forEach((s, i) => {
-      const ry = y + 12 + i * rowH + rowH / 2;
+      const ry = y + 8 + i * rowH + rowH / 2;
       // colour chip
       ctx.beginPath();
-      ctx.arc(x + 20, ry, 6, 0, TAU);
+      ctx.arc(x + 16, ry, 5, 0, TAU);
       ctx.fillStyle = s.color;
       ctx.shadowColor = s.color;
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 8;
       ctx.fill();
       ctx.shadowBlur = 0;
       // Leader crown sits above the top-ranked faction's chip.
-      if (i === 0 && s.total > 0) this._crown(ctx, x + 20, ry - 12, 11, '#ffd76b');
+      if (i === 0 && s.total > 0) this._crown(ctx, x + 16, ry - 10, 9, '#ffd76b');
       // name
-      ctx.fillStyle = s.isHuman ? '#ffffff' : 'rgba(210,225,245,0.8)';
+      ctx.fillStyle = s.isHuman ? '#ffffff' : 'rgba(210,225,245,0.78)';
       ctx.textAlign = 'left';
-      ctx.fillText(s.name + (s.isHuman ? '  ' + this.T.youTag : ''), x + 34, ry);
+      ctx.fillText(s.name + (s.isHuman ? ' ' + this.T.youTag : ''), x + 27, ry);
       // score
       ctx.fillStyle = s.color;
       ctx.textAlign = 'right';
-      ctx.font = `700 15px ${this.font}`;
-      ctx.fillText(String(s.total), x + boxW - 14, ry);
-      ctx.font = `700 13px ${this.font}`;
+      ctx.font = `700 14px ${this.font}`;
+      ctx.fillText(String(s.total), x + boxW - 11, ry);
+      ctx.font = `700 12px ${this.font}`;
     });
   }
 
