@@ -93,7 +93,7 @@ export const CLASSES = {
   nova: {
     id: 'nova', name: 'NOVA', role: { ko: '스피드형', en: 'SPEED' },
     shape: 'chevron', accent: '#ffcf4a', eye: '#8ff0ff',
-    light: '#f4f7fb', mid: '#8090ab', dark: '#232d45',
+    light: '#fdf3cf', mid: '#e0b84a', dark: '#4a3a14',
     speedMul: 1.18, regenMul: 1.0, maxEnergyMul: 0.9,
     dashCdMul: 0.68, shieldTimeMul: 0.85, radiusMul: 0.94,
   },

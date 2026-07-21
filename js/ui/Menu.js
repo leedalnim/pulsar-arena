@@ -81,7 +81,7 @@ export class Menu {
       const cls = CLASSES[id];
       const role = (cls.role && cls.role[lang]) || cls.role.en || '';
       return `<button class="cls-card ${id === sel ? 'sel' : ''}" data-cls="${id}" style="--c:${cls.accent}">
-        <span class="cls-art">${portraitSVG(cls, 88)}</span>
+        <span class="cls-art">${portraitSVG(cls, 66)}</span>
         <span class="cls-name">${cls.name}</span>
         <span class="cls-role">${role}</span>
       </button>`;
