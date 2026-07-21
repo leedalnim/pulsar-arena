@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#060912" />
+  <title>PULSAR — Energy Core Arena</title>
+
+  <!-- Distinctive display + UI fonts (no generic system stack). -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- Root app container: canvas + overlays live here. -->
+  <div id="app">
+    <canvas id="game"></canvas>
+
+    <!-- DOM overlay for menus (populated by Menu.js). -->
+    <div id="overlay" class="overlay"></div>
+
+    <!-- Shown only if the game fails to boot (e.g. opened via file://). -->
+    <noscript class="boot-hint">This game needs JavaScript enabled.</noscript>
+    <div id="bootHint" class="boot-hint" hidden>
+      <div class="panel">
+        <h2>RUN VIA A LOCAL SERVER</h2>
+        <p>PULSAR uses ES modules, which browsers block over <code>file://</code>.
+        Start any static server in this folder, for example:</p>
+        <pre>python -m http.server 8080</pre>
+        <p>then open <code>http://localhost:8080</code>. In VS Code, the
+        “Live Server” extension works too.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Entry point (module). If this throws due to file:// the hint appears. -->
+  <script type="module" src="js/main.js"></script>
+  <script>
+    // If modules never execute (file:// protocol), reveal the local-server hint.
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        if (!window.__PULSAR_BOOTED__ && location.protocol === 'file:') {
+          document.getElementById('bootHint').hidden = false;
+        }
+      }, 600);
+    });
+  </script>
+</body>
+</html>

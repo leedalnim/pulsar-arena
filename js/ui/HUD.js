@@ -1,0 +1,279 @@
+/**
+ * HUD.js
+ * ---------------------------------------------------------------------------
+ * Draws the in-game heads-up display directly on the canvas (screen space, not
+ * world space): the faction scoreboard, the local player's energy bar, ability
+ * cooldown pips, the selected core type, the match timer, and a compact
+ * minimap. Rendered after the world so it always sits on top.
+ * ---------------------------------------------------------------------------
+ */
+import { CORE_TYPES, CORE_ORDER, PLAYER, TILE } from '../core/constants.js';
+import { strings } from '../core/i18n.js';
+import { TAU, rgba, clamp } from '../core/utils.js';
+
+export class HUD {
+  constructor() {
+    this.font = '"Chakra Petch", system-ui, sans-serif';
+  }
+
+  render(ctx, game, W, H) {
+    ctx.save();
+    ctx.textBaseline = 'middle';
+    this.T = strings(game.settings.lang);
+
+    this._territoryBar(ctx, game, W);
+    this._scoreboard(ctx, game, W);
+    this._timer(ctx, game, W);
+    if (game.localPlayer) this._playerPanel(ctx, game, W, H);
+    this._minimap(ctx, game, W, H);
+
+    ctx.restore();
+  }
+
+  /* ---------------------------- scoreboard ------------------------------- */
+  _scoreboard(ctx, game, W) {
+    const scores = game.scores();
+    const pad = 16, rowH = 26, boxW = 210;
+    const x = pad, y = pad;
+
+    this._panel(ctx, x, y, boxW, 12 + scores.length * rowH, 12);
+
+    ctx.font = `700 13px ${this.font}`;
+    scores.forEach((s, i) => {
+      const ry = y + 12 + i * rowH + rowH / 2;
+      // colour chip
+      ctx.beginPath();
+      ctx.arc(x + 20, ry, 6, 0, TAU);
+      ctx.fillStyle = s.color;
+      ctx.shadowColor = s.color;
+      ctx.shadowBlur = 10;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      // Leader crown sits above the top-ranked faction's chip.
+      if (i === 0 && s.total > 0) this._crown(ctx, x + 20, ry - 12, 11, '#ffd76b');
+      // name
+      ctx.fillStyle = s.isHuman ? '#ffffff' : 'rgba(210,225,245,0.8)';
+      ctx.textAlign = 'left';
+      ctx.fillText(s.name + (s.isHuman ? '  ' + this.T.youTag : ''), x + 34, ry);
+      // score
+      ctx.fillStyle = s.color;
+      ctx.textAlign = 'right';
+      ctx.font = `700 15px ${this.font}`;
+      ctx.fillText(String(s.total), x + boxW - 14, ry);
+      ctx.font = `700 13px ${this.font}`;
+    });
+  }
+
+  /* -------------------------- territory bar ------------------------------ */
+  // Slim top strip showing each faction's share of claimed tiles (à la 62/37).
+  _territoryBar(ctx, game, W) {
+    const counts = game.territory.counts;
+    const total = counts.reduce((a, b) => a + b, 0);
+    const h = 10, x = 16, y = 4, boxW = W - 32;
+
+    this._round(ctx, x, y, boxW, h, 5);
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.fill();
+    if (total <= 0) return;
+
+    ctx.save();
+    this._round(ctx, x, y, boxW, h, 5);
+    ctx.clip();
+    let cx = x;
+    const facs = game.factions.slice(0, counts.length);
+    facs.forEach((f, i) => {
+      const w = (counts[i] / total) * boxW;
+      if (w <= 0.5) return;
+      ctx.fillStyle = rgba(f.color, 0.85);
+      ctx.fillRect(cx, y, w, h);
+      if (w > 42) {
+        ctx.fillStyle = 'rgba(6,10,18,0.92)';
+        ctx.font = `700 9px ${this.font}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(Math.round((counts[i] / total) * 100) + '%', cx + w / 2, y + h / 2 + 0.5);
+      }
+      cx += w;
+    });
+    ctx.restore();
+  }
+
+  // Minimal three-peak crown for the leader.
+  _crown(ctx, cx, cy, s, color) {
+    const w = s, h = s * 0.62;
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.moveTo(cx - w / 2, cy + h / 2);
+    ctx.lineTo(cx - w / 2, cy - h / 2);
+    ctx.lineTo(cx - w / 4, cy + h / 6);
+    ctx.lineTo(cx, cy - h / 2 - s * 0.16);
+    ctx.lineTo(cx + w / 4, cy + h / 6);
+    ctx.lineTo(cx + w / 2, cy - h / 2);
+    ctx.lineTo(cx + w / 2, cy + h / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /* ------------------------------- timer --------------------------------- */
+  _timer(ctx, game, W) {
+    const t = Math.max(0, Math.ceil(game.timeLeft));
+    const m = String(Math.floor(t / 60)).padStart(2, '0');
+    const s = String(t % 60).padStart(2, '0');
+    const label = `${m}:${s}`;
+    const boxW = 120, x = W / 2 - boxW / 2, y = 16;
+    this._panel(ctx, x, y, boxW, 40, 12);
+    ctx.font = `700 22px ${this.font}`;
+    ctx.fillStyle = t <= 15 ? '#ff6b8a' : '#eaf3ff';
+    if (t <= 15) { ctx.shadowColor = '#ff6b8a'; ctx.shadowBlur = 12; }
+    // Fixed digit cells so the clock doesn't wobble as numbers change width.
+    this._drawFixed(ctx, label, W / 2, y + 21, 14);
+    ctx.shadowBlur = 0;
+  }
+
+  /** Render text with a fixed advance per character (stable, non-jittery). */
+  _drawFixed(ctx, text, cx, cy, cellW) {
+    const prev = ctx.textAlign;
+    ctx.textAlign = 'center';
+    let x = cx - (text.length * cellW) / 2 + cellW / 2;
+    for (const ch of text) {
+      // Punctuation reads better on a slightly narrower cell.
+      const w = ch === ':' ? cellW * 0.6 : cellW;
+      ctx.fillText(ch, x + (w - cellW) / 2, cy);
+      x += w;
+    }
+    ctx.textAlign = prev;
+  }
+
+  /* --------------------------- player panel ------------------------------ */
+  _playerPanel(ctx, game, W, H) {
+    const p = game.localPlayer;
+    const boxW = 260, boxH = 92;
+    const x = W / 2 - boxW / 2, y = H - boxH - 16;
+    this._panel(ctx, x, y, boxW, boxH, 14);
+
+    // Energy bar.
+    const barX = x + 16, barY = y + 18, barW = boxW - 32, barH = 12;
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    this._round(ctx, barX, barY, barW, barH, 6); ctx.fill();
+    const e = p.energy / PLAYER.MAX_ENERGY;
+    const g = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+    g.addColorStop(0, '#22e6ff');
+    g.addColorStop(1, '#a6ff2e');
+    ctx.fillStyle = g;
+    this._round(ctx, barX, barY, Math.max(4, barW * e), barH, 6); ctx.fill();
+    ctx.font = `600 10px ${this.font}`;
+    ctx.fillStyle = 'rgba(210,225,245,0.75)';
+    ctx.textAlign = 'left';
+    ctx.fillText(this.T.energy, barX, barY - 8);
+
+    // Ability pips: DASH, SHIELD, and current CORE.
+    const pipY = y + 52, pipR = 15, gap = 60;
+    const cx0 = x + 40;
+    this._abilityPip(ctx, cx0, pipY, pipR, this.T.hudDash, 1 - p.dashCd / PLAYER.DASH_COOLDOWN, '»');
+    this._abilityPip(ctx, cx0 + gap, pipY, pipR, this.T.hudShield,
+      p.shielded ? 1 : 1 - p.shieldCd / PLAYER.SHIELD_COOLDOWN, '◈', p.shielded);
+
+    // Core selector.
+    const type = CORE_TYPES[p.coreType];
+    const label = this.T.core[p.coreType] || type.label;
+    const affordable = p.energy >= type.cost;
+    const ccx = x + boxW - 58, ccy = pipY;
+    ctx.beginPath();
+    ctx.arc(ccx, ccy, pipR + 2, 0, TAU);
+    ctx.fillStyle = affordable ? rgba(p.color, 0.22) : 'rgba(120,120,140,0.15)';
+    ctx.fill();
+    ctx.strokeStyle = affordable ? p.color : 'rgba(150,150,170,0.4)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = affordable ? '#ffffff' : 'rgba(200,200,210,0.5)';
+    ctx.font = `700 11px ${this.font}`;
+    ctx.textAlign = 'center';
+    ctx.fillText(label, ccx, ccy - 2);
+    ctx.font = `600 9px ${this.font}`;
+    ctx.fillStyle = affordable ? rgba(p.color, 0.9) : 'rgba(200,200,210,0.5)';
+    ctx.fillText(`${type.cost}⚡`, ccx, ccy + 10);
+  }
+
+  _abilityPip(ctx, cx, cy, r, label, ready, glyph, active = false) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, TAU);
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.fill();
+    // Cooldown sweep.
+    const rd = clamp(ready, 0, 1);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + TAU * rd);
+    ctx.closePath();
+    ctx.fillStyle = active ? 'rgba(255,255,255,0.35)' : (rd >= 1 ? 'rgba(34,230,255,0.30)' : 'rgba(120,140,170,0.2)');
+    ctx.fill();
+    ctx.strokeStyle = rd >= 1 ? '#22e6ff' : 'rgba(150,170,200,0.5)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.stroke();
+    ctx.fillStyle = '#eaf3ff';
+    ctx.font = `700 14px ${this.font}`;
+    ctx.textAlign = 'center';
+    ctx.fillText(glyph, cx, cy);
+    ctx.font = `600 8px ${this.font}`;
+    ctx.fillStyle = 'rgba(210,225,245,0.7)';
+    ctx.fillText(label, cx, cy + r + 8);
+  }
+
+  /* ------------------------------ minimap -------------------------------- */
+  _minimap(ctx, game, W, H) {
+    const size = 132, pad = 16;
+    const x = W - size - pad, y = H - size - pad;
+    this._panel(ctx, x, y, size, size, 12);
+    const grid = game.grid;
+    const sx = (size - 12) / grid.cols, sy = (size - 12) / grid.rows;
+    const ox = x + 6, oy = y + 6;
+
+    // Territory + walls.
+    for (let r = 0; r < grid.rows; r++) {
+      for (let c = 0; c < grid.cols; c++) {
+        const type = grid.get(c, r);
+        const owner = game.territory.owner[r * grid.cols + c];
+        if (type === TILE.WALL) {
+          ctx.fillStyle = 'rgba(90,120,160,0.35)';
+          ctx.fillRect(ox + c * sx, oy + r * sy, sx, sy);
+        } else if (owner > 0) {
+          ctx.fillStyle = rgba(game.factions[owner - 1].color, 0.5);
+          ctx.fillRect(ox + c * sx, oy + r * sy, sx, sy);
+        }
+      }
+    }
+    // Players.
+    for (const p of game.players) {
+      if (p.downed) continue;
+      const px = ox + (p.x / grid.worldW) * (size - 12);
+      const py = oy + (p.y / grid.worldH) * (size - 12);
+      ctx.beginPath();
+      ctx.arc(px, py, p.isHuman ? 3.5 : 2.5, 0, TAU);
+      ctx.fillStyle = p.color;
+      ctx.shadowColor = p.color; ctx.shadowBlur = 6;
+      ctx.fill(); ctx.shadowBlur = 0;
+    }
+  }
+
+  /* ------------------------------ helpers -------------------------------- */
+  _panel(ctx, x, y, w, h, r) {
+    this._round(ctx, x, y, w, h, r);
+    ctx.fillStyle = 'rgba(12,18,32,0.72)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(90,150,220,0.22)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  _round(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+}

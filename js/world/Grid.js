@@ -1,0 +1,242 @@
+/**
+ * Grid.js
+ * ---------------------------------------------------------------------------
+ * The tile grid: stores tile types, teleport pad pairings, and provides the
+ * collision + coordinate helpers every gameplay system relies on. Rendering of
+ * the floor, walls, crystals and teleport pads also lives here so the visual
+ * language of the arena is defined in one place.
+ * ---------------------------------------------------------------------------
+ */
+import { GRID, TILE, THEMES } from '../core/constants.js';
+import { TAU, rgba, clamp, shadowEllipse } from '../core/utils.js';
+
+export class Grid {
+  constructor(theme) {
+    this.theme = theme || THEMES.facility;
+    this.cols = GRID.COLS;
+    this.rows = GRID.ROWS;
+    this.tile = GRID.TILE;
+    this.worldW = this.cols * this.tile;
+    this.worldH = this.rows * this.tile;
+    this.cells = new Uint8Array(this.cols * this.rows);
+    this.teleports = [];          // list of {c, r, linkIndex}
+    this._pulse = 0;              // ambient animation clock
+  }
+
+  index(c, r) { return r * this.cols + c; }
+  get(c, r) {
+    if (c < 0 || r < 0 || c >= this.cols || r >= this.rows) return TILE.WALL;
+    return this.cells[this.index(c, r)];
+  }
+  set(c, r, v) {
+    if (c < 0 || r < 0 || c >= this.cols || r >= this.rows) return;
+    this.cells[this.index(c, r)] = v;
+  }
+
+  /** World pixel -> tile coordinate. */
+  toTile(x, y) {
+    return { c: Math.floor(x / this.tile), r: Math.floor(y / this.tile) };
+  }
+  /** Tile coordinate -> world pixel centre. */
+  toWorld(c, r) {
+    return { x: c * this.tile + this.tile / 2, y: r * this.tile + this.tile / 2 };
+  }
+
+  isSolid(c, r) {
+    const t = this.get(c, r);
+    return t === TILE.WALL || t === TILE.CRYSTAL;
+  }
+
+  /**
+   * Line-of-sight test used for pulse occlusion: returns true if a solid WALL
+   * tile lies strictly between two world points (origin/target tiles excluded).
+   * Samples densely enough (≤0.4 tile) that no full-tile wall can be skipped, so
+   * players/crystals/cores behind a wall are shielded from the blast — walls act
+   * as cover, the way bomb games work. (Destructible crystals do NOT block.)
+   */
+  lineBlockedByWall(x0, y0, x1, y1) {
+    const t = this.tile;
+    const dx = x1 - x0, dy = y1 - y0;
+    const len = Math.hypot(dx, dy);
+    if (len < 1) return false;
+    const steps = Math.ceil(len / (t * 0.4));
+    const oc = Math.floor(x0 / t), or = Math.floor(y0 / t);
+    const tc = Math.floor(x1 / t), tr = Math.floor(y1 / t);
+    for (let i = 1; i < steps; i++) {
+      const f = i / steps;
+      const c = Math.floor((x0 + dx * f) / t);
+      const r = Math.floor((y0 + dy * f) / t);
+      if ((c === oc && r === or) || (c === tc && r === tr)) continue;
+      if (this.get(c, r) === TILE.WALL) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Circle-vs-grid collision resolution. Given a desired position and radius,
+   * returns a corrected {x, y} that does not overlap solid tiles. Uses simple
+   * axis-separated push-out against the (up to) 9 surrounding tiles.
+   */
+  resolveCircle(x, y, radius) {
+    const c0 = Math.floor((x - radius) / this.tile);
+    const c1 = Math.floor((x + radius) / this.tile);
+    const r0 = Math.floor((y - radius) / this.tile);
+    const r1 = Math.floor((y + radius) / this.tile);
+    for (let r = r0; r <= r1; r++) {
+      for (let c = c0; c <= c1; c++) {
+        if (!this.isSolid(c, r)) continue;
+        const left = c * this.tile, top = r * this.tile;
+        const nx = clamp(x, left, left + this.tile);
+        const ny = clamp(y, top, top + this.tile);
+        let dx = x - nx, dy = y - ny;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < radius * radius) {
+          const d = Math.sqrt(d2) || 0.0001;
+          const push = radius - d;
+          x += (dx / d) * push;
+          y += (dy / d) * push;
+        }
+      }
+    }
+    return { x, y };
+  }
+
+  /** Destroy a crystal tile, returning true if one was there. */
+  destroyCrystal(c, r) {
+    if (this.get(c, r) === TILE.CRYSTAL) {
+      this.set(c, r, TILE.FLOOR);
+      return true;
+    }
+    return false;
+  }
+
+  /** Find the teleport pad linked to the given one. */
+  linkedPad(pad) {
+    return this.teleports.find((p) => p !== pad && p.linkIndex === pad.linkIndex);
+  }
+
+  update(dt) { this._pulse += dt; }
+
+  /* ------------------------------ rendering ------------------------------ */
+
+  /** Draw the arena floor as subtly bevelled tech panels within the camera view. */
+  renderFloor(ctx, cam) {
+    const t = this.tile;
+    const startC = Math.max(0, Math.floor(cam.x / t));
+    const endC = Math.min(this.cols - 1, Math.ceil((cam.x + cam.viewW) / t));
+    const startR = Math.max(0, Math.floor(cam.y / t));
+    const endR = Math.min(this.rows - 1, Math.ceil((cam.y + cam.viewH) / t));
+    const th = this.theme;
+
+    for (let r = startR; r <= endR; r++) {
+      for (let c = startC; c <= endC; c++) {
+        if (this.get(c, r) === TILE.WALL) continue;   // walls draw their own body
+        const x = c * t, y = r * t, pad = 2;
+        // Panel body: light top -> mid tint -> dark bottom for a soft bevel.
+        this._roundRect(ctx, x + pad, y + pad, t - pad * 2, t - pad * 2, 6);
+        const g = ctx.createLinearGradient(x, y, x, y + t);
+        g.addColorStop(0, th.floorEdge);
+        g.addColorStop(0.5, th.floorPanel);
+        g.addColorStop(1, 'rgba(0,0,0,0.12)');
+        ctx.fillStyle = g;
+        ctx.fill();
+        // Thin top highlight edge for the tech read.
+        ctx.beginPath();
+        ctx.moveTo(x + pad + 4, y + pad + 0.5);
+        ctx.lineTo(x + t - pad - 4, y + pad + 0.5);
+        ctx.strokeStyle = th.floorEdge;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+  }
+
+  /** Draw walls, crystals and teleport pads. */
+  renderTiles(ctx, cam) {
+    const t = this.tile;
+    const startC = Math.max(0, Math.floor(cam.x / t));
+    const endC = Math.min(this.cols - 1, Math.ceil((cam.x + cam.viewW) / t));
+    const startR = Math.max(0, Math.floor(cam.y / t));
+    const endR = Math.min(this.rows - 1, Math.ceil((cam.y + cam.viewH) / t));
+
+    for (let r = startR; r <= endR; r++) {
+      for (let c = startC; c <= endC; c++) {
+        const type = this.get(c, r);
+        if (type === TILE.WALL) this._drawWall(ctx, c, r, t);
+        else if (type === TILE.CRYSTAL) this._drawCrystal(ctx, c, r, t);
+        else if (type === TILE.TELEPORT) this._drawTeleport(ctx, c, r, t);
+      }
+    }
+  }
+
+  _drawWall(ctx, c, r, t) {
+    const x = c * t, y = r * t, pad = 3, rad = 10;
+    // Contact shadow onto the floor for depth.
+    shadowEllipse(ctx, x + t / 2, y + t - 4, t * 0.5, t * 0.18, 0.28);
+    this._roundRect(ctx, x + pad, y + pad, t - pad * 2, t - pad * 2, rad);
+    const g = ctx.createLinearGradient(x, y, x, y + t);
+    g.addColorStop(0, this.theme.wallTop);
+    g.addColorStop(1, this.theme.wallBot);
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = this.theme.wallEdge;
+    ctx.stroke();
+  }
+
+  _drawCrystal(ctx, c, r, t) {
+    const cx = c * t + t / 2, cy = r * t + t / 2;
+    const pulse = 0.5 + 0.5 * Math.sin(this._pulse * 3 + (c + r));
+    const s = t * 0.30;
+    shadowEllipse(ctx, cx, cy + s * 0.9, s * 1.3, s * 0.5, 0.26);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.PI / 4);
+    // outer glow
+    ctx.shadowColor = 'rgba(120,240,255,0.9)';
+    ctx.shadowBlur = 12 + pulse * 10;
+    const g = ctx.createLinearGradient(-s, -s, s, s);
+    g.addColorStop(0, '#8ff6ff');
+    g.addColorStop(1, '#2aa9d8');
+    ctx.fillStyle = g;
+    this._roundRect(ctx, -s, -s, s * 2, s * 2, 5);
+    ctx.fill();
+    // inner facet
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = rgba('#ffffff', 0.35 + pulse * 0.3);
+    this._roundRect(ctx, -s * 0.45, -s * 0.45, s * 0.9, s * 0.9, 3);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  _drawTeleport(ctx, c, r, t) {
+    const cx = c * t + t / 2, cy = r * t + t / 2;
+    const spin = this._pulse * 1.5;
+    ctx.save();
+    ctx.translate(cx, cy);
+    for (let i = 0; i < 3; i++) {
+      const rad = t * (0.16 + i * 0.10);
+      const a = 0.4 - i * 0.1 + 0.2 * Math.sin(this._pulse * 4 + i);
+      ctx.beginPath();
+      ctx.strokeStyle = rgba('#c76bff', a);
+      ctx.lineWidth = 2;
+      ctx.arc(0, 0, rad, spin + i, spin + i + Math.PI * 1.4);
+      ctx.stroke();
+    }
+    ctx.fillStyle = rgba('#e3b3ff', 0.6);
+    ctx.beginPath();
+    ctx.arc(0, 0, 4, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  _roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+}
