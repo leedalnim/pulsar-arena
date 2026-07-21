@@ -66,6 +66,7 @@ export function drawDrone(ctx, cls, color, radius, facing, t = 0) {
   ctx.fillStyle = rgba(accent, 0.95);
   ctx.lineWidth = Math.max(1.4, R * 0.1);
   ctx.lineCap = 'round';
+  ctx.shadowColor = accent; ctx.shadowBlur = 5;
   if (cls.shape === 'chevron') {            // NOVA — horns
     ctx.beginPath();
     ctx.moveTo(-R * 0.42, -R * 0.95); ctx.lineTo(-R * 0.72, -R * 1.5);
@@ -83,9 +84,16 @@ export function drawDrone(ctx, cls, color, radius, facing, t = 0) {
     ctx.beginPath();
     ctx.arc(0, -R * 1.6, R * 0.15, 0, TAU);
     ctx.fill();
-  } else {                                  // SPECTER — halo
+  } else {                                  // SPECTER — glowing double-ring halo
     ctx.globalCompositeOperation = 'lighter';
-    ctx.lineWidth = Math.max(1.4, R * 0.09);
+    ctx.shadowColor = accent; ctx.shadowBlur = 9;
+    ctx.lineWidth = Math.max(2, R * 0.12);
+    ctx.beginPath();
+    ctx.ellipse(0, -R * 1.42, R * 0.6, R * 0.22, 0, 0, TAU);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(234,255,255,0.95)';
+    ctx.lineWidth = Math.max(1, R * 0.05);
     ctx.beginPath();
     ctx.ellipse(0, -R * 1.42, R * 0.6, R * 0.22, 0, 0, TAU);
     ctx.stroke();
@@ -110,12 +118,33 @@ export function drawDrone(ctx, cls, color, radius, facing, t = 0) {
   ctx.lineWidth = 1.4;
   ctx.stroke();
 
-  // Specular highlight.
+  // Bottom rim light (faction accent) for volume.
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   ctx.beginPath();
-  ctx.arc(-R * 0.3, -R * 0.55, R * 0.34, 0, TAU);
-  ctx.fillStyle = 'rgba(255,255,255,0.28)';
+  ctx.moveTo(-R * 0.86, R * 0.46);
+  ctx.quadraticCurveTo(0, R * 1.26, R * 0.86, R * 0.46);
+  ctx.strokeStyle = rgba(accent, 0.7);
+  ctx.lineWidth = 2;
+  ctx.shadowColor = accent; ctx.shadowBlur = 8;
+  ctx.stroke();
+  ctx.restore();
+
+  // Faint panel seams for a paneled read.
+  ctx.strokeStyle = 'rgba(10,20,36,0.3)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, -R * 0.55); ctx.lineTo(0, R * 1.0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-R * 0.76, R * 0.06); ctx.quadraticCurveTo(0, R * 0.3, R * 0.76, R * 0.06); ctx.stroke();
+
+  // Soft specular highlight (radial → blurred look).
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const sg = ctx.createRadialGradient(-R * 0.3, -R * 0.58, 0, -R * 0.3, -R * 0.58, R * 0.6);
+  sg.addColorStop(0, 'rgba(255,255,255,0.55)');
+  sg.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = sg;
+  ctx.beginPath();
+  ctx.arc(-R * 0.3, -R * 0.58, R * 0.6, 0, TAU);
   ctx.fill();
   ctx.restore();
 
@@ -126,11 +155,24 @@ export function drawDrone(ctx, cls, color, radius, facing, t = 0) {
   ctx.quadraticCurveTo(R * 0.5, -R * 0.18, 0, -R * 0.14);
   ctx.quadraticCurveTo(-R * 0.5, -R * 0.18, -R * 0.62, -R * 0.5);
   ctx.closePath();
-  ctx.fillStyle = '#08111c';
+  const vg = ctx.createRadialGradient(0, -R * 0.62, R * 0.05, 0, -R * 0.42, R * 0.7);
+  vg.addColorStop(0, '#15283c');
+  vg.addColorStop(1, '#03080f');
+  ctx.fillStyle = vg;
   ctx.fill();
-  ctx.strokeStyle = rgba(accent, 0.5);
+  ctx.strokeStyle = rgba(accent, 0.55);
   ctx.lineWidth = 1;
   ctx.stroke();
+  // Glassy top highlight on the visor.
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.beginPath();
+  ctx.moveTo(-R * 0.44, -R * 0.56);
+  ctx.quadraticCurveTo(0, -R * 0.72, R * 0.44, -R * 0.56);
+  ctx.strokeStyle = 'rgba(180,220,255,0.35)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.restore();
 
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
@@ -155,11 +197,19 @@ export function drawDrone(ctx, cls, color, radius, facing, t = 0) {
     ctx.beginPath();
     ctx.moveTo(-R * 0.32, -R * 0.4); ctx.lineTo(R * 0.32, -R * 0.4);
     ctx.stroke();
-  } else {                                  // two round eyes
-    ctx.beginPath();
-    ctx.arc(-R * 0.26, -R * 0.42, R * 0.11, 0, TAU);
-    ctx.arc(R * 0.26, -R * 0.42, R * 0.11, 0, TAU);
-    ctx.fill();
+  } else {                                  // two round eyes (gradient + highlight)
+    const drawEye = (ex, ey, rr) => {
+      const eg = ctx.createRadialGradient(ex - rr * 0.3, ey - rr * 0.35, 0, ex, ey, rr);
+      eg.addColorStop(0, '#ffffff');
+      eg.addColorStop(0.45, eye);
+      eg.addColorStop(1, rgba(eye, 0.25));
+      ctx.fillStyle = eg;
+      ctx.beginPath(); ctx.arc(ex, ey, rr, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(ex - rr * 0.32, ey - rr * 0.36, rr * 0.3, 0, TAU); ctx.fill();
+    };
+    drawEye(-R * 0.26, -R * 0.42, R * 0.12);
+    drawEye(R * 0.26, -R * 0.42, R * 0.12);
   }
   ctx.restore();
 
