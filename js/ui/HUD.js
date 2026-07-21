@@ -27,7 +27,6 @@ export class HUD {
     this._stageLabel(ctx, game, W);
     if (game.localPlayer) this._playerPanel(ctx, game, W, H);
     if (game.localPlayer) this._buffs(ctx, game.localPlayer, W, H);
-    if (game.coop && game.humans[1]) this._coopPanel(ctx, game.humans[1], W, H);
     this._minimap(ctx, game, W, H);
     if (game._introTimer > 0) this._introBanner(ctx, game, W, H);
 
@@ -282,32 +281,6 @@ export class HUD {
     ctx.font = `600 9px ${this.font}`;
     ctx.fillStyle = affordable ? rgba(p.color, 0.9) : 'rgba(200,200,210,0.5)';
     ctx.fillText(`${type.cost}⚡`, ccx, ccy + 10);
-  }
-
-  /* ------------------------- coop P2 mini panel -------------------------- */
-  _coopPanel(ctx, p, W, H) {
-    const boxW = 176, boxH = 58, x = 16, y = H - boxH - 16;
-    this._panel(ctx, x, y, boxW, boxH, 12);
-    // P2 tag chip.
-    ctx.beginPath();
-    ctx.arc(x + 18, y + 20, 6, 0, TAU);
-    ctx.fillStyle = p.color;
-    ctx.shadowColor = p.color; ctx.shadowBlur = 8; ctx.fill(); ctx.shadowBlur = 0;
-    ctx.fillStyle = '#eaf3ff';
-    ctx.font = `700 12px ${this.font}`;
-    ctx.textAlign = 'left';
-    ctx.fillText('P2', x + 30, y + 20);
-    ctx.fillStyle = rgba(p.color, 0.9);
-    ctx.font = `700 10px ${this.font}`;
-    ctx.textAlign = 'right';
-    ctx.fillText((CORE_TYPES[p.coreType] && (this.T.core[p.coreType] || CORE_TYPES[p.coreType].label)) || '', x + boxW - 12, y + 20);
-    // Energy bar.
-    const barX = x + 14, barY = y + 34, barW = boxW - 28, barH = 10;
-    ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    this._round(ctx, barX, barY, barW, barH, 5); ctx.fill();
-    const e = p.energy / p.maxEnergy;
-    ctx.fillStyle = rgba(p.color, 0.9);
-    this._round(ctx, barX, barY, Math.max(4, barW * e), barH, 5); ctx.fill();
   }
 
   _abilityPip(ctx, cx, cy, r, label, ready, glyph, active = false) {

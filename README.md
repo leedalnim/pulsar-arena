@@ -49,11 +49,6 @@ npm test      # headless smoke test
 | Cycle core type | `Q` | ⟳ button |
 | Pause | `Esc` / `P` | (pause via menu) |
 
-**Local 2-player** — enable *Local 2-Player* in Settings. Player 1 uses `WASD`
-(+ `Space` / `Shift` / `E` / `Q`); Player 2 uses the **arrow keys** (+ `Enter`
-deploy, `/` dash, `'` shield, `.` cycle). The camera frames both, and bots fill
-the remaining slots.
-
 **Online 1v1 (P2P)** — *Online 1v1* on the main menu connects two browsers over
 WebRTC with **no server**: manual copy-paste signaling. The host creates a room
 and shares the generated code; the guest pastes it and returns an answer code;

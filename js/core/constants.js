@@ -249,7 +249,6 @@ export const DEFAULT_SETTINGS = {
   duration: MATCH.DEFAULT_DURATION,
   lang: 'ko',        // Korean by default; English selectable in settings
   charClass: 'specter', // chosen drone class for the human player
-  coop: false,       // local 2-player split (P1 WASD, P2 arrows)
   bestStage: 0,      // highest stage cleared (stage mode record)
   playerName: '',    // display name for the human player (blank = faction name)
 };

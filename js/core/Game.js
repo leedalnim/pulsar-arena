@@ -57,8 +57,7 @@ export class Game {
     this._itemAcc = 0;        // item spawn accumulator
 
     this.localPlayer = null;
-    this.humans = [];         // 1 (solo) or 2 (local coop) human players
-    this.coop = false;
+    this.humans = [];         // 1 (solo) or 2 (P2P host) human players
     this.grid = null;
 
     // Game mode: 'arena' (single match) | 'stages' (escalating progression).
@@ -96,9 +95,7 @@ export class Game {
   newMatch() {
     const isHost = this.netRole === 'host';
     const isStages = this.mode === 'stages';
-    this.coop = !isHost && !isStages && !!this.settings.coop; // local coop: offline arena only
-    this.input.setCoop(this.coop);
-    const humanCount = (isHost || this.coop) ? 2 : 1;
+    const humanCount = isHost ? 2 : 1;
 
     // Stage mode ramps difficulty; arena uses the player's settings.
     let botCount, duration;
@@ -131,7 +128,7 @@ export class Game {
     this._itemAcc = 0;
     this.particles.clear();
 
-    // Human(s) first; bots fill the rest. In coop, P2 gets a different class.
+    // Human first; bots fill the rest. A P2P host adds the joined client.
     this.humans = [];
     const humanClass = this.settings.charClass || 'specter';
     this.localPlayer = new Player(spawns[0].x, spawns[0].y, this.factions[0], 0, true, humanClass);
@@ -144,11 +141,6 @@ export class Game {
       this.remotePlayer = new Player(spawns[1].x, spawns[1].y, this.factions[1], 1, true, rc);
       this.players.push(this.remotePlayer);
       this.humans.push(this.remotePlayer);
-    } else if (this.coop) {
-      const p2class = CLASS_ORDER.find((c) => c !== humanClass) || 'nova';
-      const p2 = new Player(spawns[1].x, spawns[1].y, this.factions[1], 1, true, p2class);
-      this.players.push(p2);
-      this.humans.push(p2);
     }
     const botClasses = shuffle(CLASS_ORDER.concat(CLASS_ORDER));
     for (let i = humanCount; i < factionCount; i++) {
@@ -332,7 +324,6 @@ export class Game {
     const actions = this.input.poll();
     if (actions.pause) { this.pause(); this.onPauseRequested?.(); return; }
     if (this.localPlayer) this.localPlayer.applyIntent(actions);
-    if (this.coop && this.humans[1]) this.humans[1].applyIntent(this.input.poll2());
     if (this.netRole === 'host' && this.remotePlayer) {
       this.remotePlayer.applyIntent(this.remoteInput);
       // Consume edge actions so each press fires exactly once.
@@ -356,7 +347,7 @@ export class Game {
     this.territory.update(dt);
     this.particles.update(dt);
 
-    // Camera follows the human(s) midpoint (frames both in coop) + timer.
+    // Camera follows the human(s) midpoint (frames both on a P2P host) + timer.
     const mid = this._humansMid();
     this.camera.follow(mid.x, mid.y, this.grid.worldW, this.grid.worldH, dt);
     this.camera.update(dt);
@@ -421,7 +412,6 @@ export class Game {
   /** Client: build the world from the host's handshake. */
   applyNetInit(net, init) {
     this.net = net;
-    this.input.setCoop(false);
     NetSync.applyInit(this, init);
     this.input.flush();
     this.input.setTouchVisible(true);
@@ -635,10 +625,11 @@ export class Game {
   onTeleport(player) {
     this.particles.burst(player.x, player.y, '#c76bff', 26, 260);
     this.sound.teleport();
-    // Re-centre on the human focus (midpoint in coop) so the view keeps up.
+    // Re-centre on the human focus (midpoint with two humans) so the view keeps up.
     if (player.isHuman) {
+      const many = this.humans.length > 1;   // P2P host frames both humans
       const mid = this._humansMid();
-      this.camera.snapTo(this.coop ? mid.x : player.x, this.coop ? mid.y : player.y);
+      this.camera.snapTo(many ? mid.x : player.x, many ? mid.y : player.y);
     }
   }
 

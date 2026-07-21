@@ -21,12 +21,8 @@ export class InputManager {
     // Continuous move vector.
     this.move = { x: 0, y: 0 };
 
-    // Edge-triggered action buffers (P1 + P2). Consumed once per frame.
+    // Edge-triggered action buffer. Consumed once per frame by poll().
     this._pending = { deploy: false, dash: false, shield: false, cycle: false, pause: false };
-    this._pending2 = { deploy: false, dash: false, shield: false, cycle: false };
-
-    // Local 2-player split: when true, arrows drive P2 (not P1).
-    this.coop = false;
 
     // Joystick state.
     this._stick = { active: false, id: null, cx: 0, cy: 0, dx: 0, dy: 0 };
@@ -43,17 +39,10 @@ export class InputManager {
       if (this._isGameKey(k)) e.preventDefault();
       if (this.keys.has(k)) return; // ignore auto-repeat for edge actions
       this.keys.add(k);
-      // Player 1 (WASD cluster).
       if (k === ' ' || k === 'spacebar') this._pending.deploy = true;
       if (k === 'shift') this._pending.dash = true;
       if (k === 'e') this._pending.shield = true;
       if (k === 'q') this._pending.cycle = true;
-      // Player 2 (arrow cluster) — only meaningful in coop, harmless otherwise.
-      if (k === 'enter') this._pending2.deploy = true;
-      if (k === '/') this._pending2.dash = true;
-      if (k === "'") this._pending2.shield = true;
-      if (k === '.') this._pending2.cycle = true;
-      // Pause (either player).
       if (k === 'escape' || k === 'p') this._pending.pause = true;
     };
     const up = (e) => this.keys.delete(e.key.toLowerCase());
@@ -63,28 +52,16 @@ export class InputManager {
 
   _isGameKey(k) {
     return [' ', 'spacebar', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright',
-      'w', 'a', 's', 'd', 'e', 'q', 'shift', 'enter', '/', "'", '.'].includes(k);
+      'w', 'a', 's', 'd', 'e', 'q', 'shift'].includes(k);
   }
 
-  /** Player 1 move: WASD, plus arrows when NOT in 2-player mode. */
   _keyboardMove() {
     let x = 0, y = 0;
     const k = this.keys;
-    if (k.has('a') || (!this.coop && k.has('arrowleft'))) x -= 1;
-    if (k.has('d') || (!this.coop && k.has('arrowright'))) x += 1;
-    if (k.has('w') || (!this.coop && k.has('arrowup'))) y -= 1;
-    if (k.has('s') || (!this.coop && k.has('arrowdown'))) y += 1;
-    return { x, y };
-  }
-
-  /** Player 2 move: arrow keys (used in coop). */
-  _keyboardMoveP2() {
-    let x = 0, y = 0;
-    const k = this.keys;
-    if (k.has('arrowleft')) x -= 1;
-    if (k.has('arrowright')) x += 1;
-    if (k.has('arrowup')) y -= 1;
-    if (k.has('arrowdown')) y += 1;
+    if (k.has('a') || k.has('arrowleft')) x -= 1;
+    if (k.has('d') || k.has('arrowright')) x += 1;
+    if (k.has('w') || k.has('arrowup')) y -= 1;
+    if (k.has('s') || k.has('arrowdown')) y += 1;
     return { x, y };
   }
 
@@ -158,13 +135,9 @@ export class InputManager {
     if (this.touchLayer) this.touchLayer.style.display = v ? 'block' : 'none';
   }
 
-  /** Enable/disable the local 2-player input split. */
-  setCoop(v) { this.coop = !!v; }
-
   /** Drop any buffered edge actions (used when (re)entering play). */
   flush() {
     this._pending = { deploy: false, dash: false, shield: false, cycle: false, pause: false };
-    this._pending2 = { deploy: false, dash: false, shield: false, cycle: false };
   }
 
   /* -------------------------------- poll --------------------------------- */
@@ -185,16 +158,6 @@ export class InputManager {
     const actions = { ...this._pending, move: this.move };
     // Reset edge triggers for next frame.
     this._pending = { deploy: false, dash: false, shield: false, cycle: false, pause: false };
-    return actions;
-  }
-
-  /** Player 2 intent (keyboard only). Call once per frame in coop. */
-  poll2() {
-    const m = this._keyboardMoveP2();
-    const len = Math.hypot(m.x, m.y);
-    if (len > 1) { m.x /= len; m.y /= len; }
-    const actions = { ...this._pending2, move: m };
-    this._pending2 = { deploy: false, dash: false, shield: false, cycle: false };
     return actions;
   }
 }
