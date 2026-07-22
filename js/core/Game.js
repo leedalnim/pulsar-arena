@@ -114,8 +114,8 @@ export class Game {
     if (isStages) {
       this.isBossStage = this.stage % 5 === 0;   // boss every 5th stage
       botCount = this.isBossStage ? 1 : (this.stage < 2 ? 1 : this.stage < 3 ? 2 : 3);
-      duration = this.isBossStage ? 60 : Math.max(45, 70 - (this.stage - 1) * 5);
-      this.botAggro = this.isBossStage ? 2.0 : Math.min(1.9, 1 + Math.max(0, this.stage - 3) * 0.12);
+      duration = this.isBossStage ? 60 : Math.max(48, 72 - (this.stage - 1) * 5);
+      this.botAggro = this.isBossStage ? 2.0 : Math.min(1.8, 1 + Math.max(0, this.stage - 3) * 0.11);
     } else {
       this.isBossStage = false;
       botCount = Math.min(3, Math.max(1, this.settings.botCount));
@@ -124,9 +124,10 @@ export class Game {
     }
     // Roguelite room modifiers (elite = harder, fortune = easier).
     if (this.mode === 'roguelite' && !this.isBossStage) {
-      if (this.roomType === 'elite') { this.botAggro *= 1.4; duration = Math.max(40, duration - 10); }
+      if (this.roomType === 'elite') { this.botAggro *= 1.35; duration = Math.max(44, duration - 8); }
       else if (this.roomType === 'fortune') { this.botAggro *= 0.8; duration += 15; }
     }
+    this.botAggro = Math.min(2.3, this.botAggro);   // cap so late elites stay fair
     const factionCount = Math.min(4, humanCount + botCount);
     this._matchDuration = duration;
 
