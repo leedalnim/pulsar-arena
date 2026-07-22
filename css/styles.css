@@ -167,6 +167,23 @@ h2 {
 
 .footnote { margin-top: 22px; font-size: 12px; color: var(--ink-dim); letter-spacing: 1px; }
 
+/* ------------------------------ meta shop ------------------------------- */
+.shop-bal { text-align: center; font-family: var(--font-display, inherit); font-size: 20px; color: #ffd76b; margin: 2px 0 14px; letter-spacing: 1px; }
+.shop-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.shop-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 14px; background: rgba(10, 16, 30, 0.5);
+  border: 1px solid rgba(90, 160, 230, 0.16); border-radius: 12px;
+}
+.shop-info { display: flex; flex-direction: column; gap: 2px; text-align: left; }
+.shop-name { font-size: 14px; color: var(--ink); font-weight: 700; }
+.shop-name em { color: var(--ink-dim); font-style: normal; font-size: 11px; font-weight: 400; }
+.shop-desc { font-size: 12px; color: var(--ink-dim); }
+.shop-buy { min-width: 74px; padding: 8px 12px; color: #ffd76b; border-color: rgba(255,215,107,0.4); }
+.shop-buy:hover { background: rgba(255,215,107,0.08); border-color: #ffd76b; }
+.shop-buy.dis { opacity: .4; cursor: not-allowed; }
+.shop-max { color: #7dffa8; font-weight: 700; letter-spacing: 1px; min-width: 74px; text-align: center; }
+
 /* ------------------------------ perk draft ------------------------------ */
 .perk-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 8px 0 4px; }
 .perk-card {

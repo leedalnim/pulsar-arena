@@ -252,6 +252,19 @@ rg.timeLeft = 0.1; rg.update(0.2);
 console.assert(rg.hearts === heartsBefore - 1, 'losing a stage costs a heart');
 console.log('roguelite: hearts', rg.hearts, '| perks', rg.runPerks.length, '| stage', rg.stage);
 
+// --- Meta shop: buy an upgrade and confirm it affects a fresh run ---
+const { buyMeta, metaLevel } = await import('../js/core/meta.js');
+const ms = { ...Storage.load(), shards: 100, meta: {} };
+console.assert(buyMeta(ms, 'heart') === true, 'buying extra heart succeeds');
+console.assert(metaLevel(ms, 'heart') === 1 && ms.shards === 60, 'heart level +1, 40 shards spent');
+console.assert(buyMeta({ shards: 5, meta: {} }, 'heart') === false, 'cannot buy without enough shards');
+const mg = new Game(new CanvasStub(), { ...ms, sfx: false, botCount: 3, duration: 30 }, sound, noInput, new ParticleSystem());
+mg.onPerkDraft = () => {}; mg.onHeartLost = () => {}; mg.onRunOver = () => {}; mg.onPauseRequested = () => {};
+mg.resize(1280, 720, 1);
+mg.startRun();
+console.assert(mg.hearts === 4, 'extra-heart meta gives 4 starting hearts');
+console.log('meta: heart Lv', metaLevel(ms, 'heart'), '| run hearts', mg.hearts, '| shards', ms.shards);
+
 // Player name shows up in the scoreboard for the human.
 game.settings.playerName = 'HERO';
 console.assert(game.scores().some((s) => s.isHuman && s.name === 'HERO'), 'player name used in scores');

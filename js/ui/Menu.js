@@ -12,6 +12,7 @@
  */
 import { strings, LANG_NAMES } from '../core/i18n.js';
 import { CLASSES, CLASS_ORDER } from '../core/constants.js';
+import { META, metaLevel, metaCostNext } from '../core/meta.js';
 import { portraitSVG } from './DroneArt.js';
 
 export class Menu {
@@ -47,6 +48,7 @@ export class Menu {
     if (screen === 'howto') return this._howtoHTML();
     if (screen === 'pause') return this._pauseHTML();
     if (screen === 'stage') return this._stageHTML(data);
+    if (screen === 'shop') return this._shopHTML(data);
     if (screen === 'perkdraft') return this._perkHTML(data);
     if (screen === 'heartlost') return this._heartLostHTML(data);
     if (screen === 'runover') return this._runOverHTML(data);
@@ -74,6 +76,7 @@ export class Menu {
       ${this._classPicker(T)}
       <div class="btn-col">
         <button class="btn btn-primary" data-act="roguelite">${T.roguelite || '로그라이크'}${this.settings.shards ? ` · ◆${this.settings.shards}` : ''}</button>
+        <button class="btn" data-act="shop">${T.shopTitle || '강화 상점'}</button>
         <button class="btn" data-act="start">${T.enterArena}</button>
         <button class="btn" data-act="stages">${T.stageMode || '스테이지 모드'}${this.settings.bestStage ? ` · ${(T.bestStage || 'BEST {n}').replace('{n}', this.settings.bestStage)}` : ''}</button>
         <button class="btn" data-act="online">${T.online || '온라인 1v1 (P2P)'}</button>
@@ -201,10 +204,40 @@ export class Menu {
         <span class="perk-name">${(p.name && (p.name[lang] || p.name.en)) || p.id}</span>
         <span class="perk-desc">${(p.desc && (p.desc[lang] || p.desc.en)) || ''}</span>
       </button>`).join('');
+    const reroll = data.rerolls > 0
+      ? `<button class="btn btn-ghost" data-act="reroll">${(T.reroll2 || '리롤 (◆{n})').replace('{n}', data.rerolls)}</button>` : '';
     return `<div class="panel panel-wide">
       <h2 class="winner" style="--c:#7dffa8">${(T.stageClear || 'STAGE {n} CLEAR!').replace('{n}', data.stage)}</h2>
       <p class="howto-note">${T.pickPerk || '퍼크를 하나 선택하세요'}</p>
       <div class="perk-row">${cards}</div>
+      ${reroll ? `<div class="btn-col">${reroll}</div>` : ''}
+    </div>`;
+  }
+
+  _shopHTML() {
+    const T = strings(this.settings.lang);
+    const lang = this.settings.lang;
+    const bal = this.settings.shards || 0;
+    const rows = META.map((u) => {
+      const lvl = metaLevel(this.settings, u.id);
+      const cost = metaCostNext(this.settings, u.id);
+      const maxed = cost == null;
+      const afford = !maxed && bal >= cost;
+      return `<div class="shop-row">
+        <div class="shop-info">
+          <span class="shop-name">${u.name[lang] || u.name.en} <em>Lv.${lvl}/${u.max}</em></span>
+          <span class="shop-desc">${u.desc[lang] || u.desc.en}</span>
+        </div>
+        ${maxed
+          ? `<span class="shop-max">MAX</span>`
+          : `<button class="btn shop-buy${afford ? '' : ' dis'}" data-buy="${u.id}"${afford ? '' : ' disabled'}>◆${cost}</button>`}
+      </div>`;
+    }).join('');
+    return `<div class="panel panel-wide">
+      <h2>${T.shopTitle || '강화 상점'}</h2>
+      <p class="shop-bal">◆ ${bal}</p>
+      <div class="shop-list">${rows}</div>
+      <div class="btn-col"><button class="btn btn-ghost" data-act="back">${T.back}</button></div>
     </div>`;
   }
 
@@ -279,6 +312,8 @@ export class Menu {
           case 'online': this.showOnline(); break;
           case 'stages': this.cb.onStages?.(); break;
           case 'roguelite': this.cb.onRoguelite?.(); break;
+          case 'shop': this.show('shop'); break;
+          case 'reroll': this.cb.onReroll?.(); break;
           case 'nextstage': this.cb.onNextStage?.(); break;
           case 'retrystage': this.cb.onRetryStage?.(); break;
           case 'howto': this.show('howto'); break;
@@ -297,6 +332,14 @@ export class Menu {
         this.cb.onSettingsChange(this.settings);
       });
     }
+
+    // Shop purchases — buy then re-render the shop to reflect the new balance.
+    q('[data-buy]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.cb.onUI?.();
+        if (this.cb.onBuyMeta?.(btn.dataset.buy)) this.show('shop');
+      });
+    });
 
     // Perk draft selection.
     q('[data-perk]').forEach((card) => {

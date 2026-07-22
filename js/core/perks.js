@@ -41,8 +41,8 @@ export const PERKS = [
   { id: 'overload', name: { ko: '과부하 회로', en: 'OVERLOAD' }, desc: { ko: '반경 +12%, 비용 -10%', en: 'Radius +12%, cost -10%' },
     apply: (r) => { r.radiusMul *= 1.12; r.costMul *= 0.9; } },
   // Special: acts on the game, not the run modifiers.
-  { id: 'mend', name: { ko: '수리', en: 'REPAIR' }, desc: { ko: '하트 +1 (최대 5)', en: 'Restore 1 heart (max 5)' },
-    special: true, apply: (r, game) => { if (game) game.hearts = Math.min(5, game.hearts + 1); } },
+  { id: 'mend', name: { ko: '수리', en: 'REPAIR' }, desc: { ko: '하트 +1 회복', en: 'Restore 1 heart' },
+    special: true, apply: (r, game) => { if (game) game.hearts = Math.min(game.maxHearts || 5, game.hearts + 1); } },
 ];
 
 const BY_ID = Object.fromEntries(PERKS.map((p) => [p.id, p]));

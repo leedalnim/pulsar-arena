@@ -38,6 +38,8 @@ const DICT = {
     perksTaken: '획득 퍼크',
     shardsEarned: '샤드 획득',
     shardsTotal: '보유 샤드',
+    shopTitle: '강화 상점',
+    reroll2: '리롤 (남은 {n})',
     mainFootnote: '오리지널 네온 아레나 — 영역을 점령하고 코어를 연쇄시키세요.',
 
     // How to play
@@ -108,6 +110,8 @@ const DICT = {
     perksTaken: 'Perks taken',
     shardsEarned: 'Shards earned',
     shardsTotal: 'Total shards',
+    shopTitle: 'UPGRADE SHOP',
+    reroll2: 'Reroll ({n} left)',
     howToPlay: 'HOW TO PLAY',
     settings: 'SETTINGS',
     mainFootnote: 'An original neon arena. Claim territory. Chain the cores.',

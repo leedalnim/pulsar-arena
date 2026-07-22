@@ -238,13 +238,18 @@ export class Game {
     this._beginStage();
   }
 
-  /** Begin a roguelite run: 3 hearts, perks drafted between stages. */
+  /** Begin a roguelite run: hearts + perks, boosted by meta upgrades. */
   startRun() {
     this.mode = 'roguelite';
     this.stage = 1;
-    this.hearts = 3;
+    const meta = this.settings.meta || {};
+    this.maxHearts = 5 + (meta.heart || 0);
+    this.hearts = 3 + (meta.heart || 0);
     this.runPerks = [];
     this.run = freshRun();
+    // Meta "starting perk": auto-draft some perks into the run.
+    const startPerks = draftPerks(meta.startperk || 0);
+    for (const p of startPerks) { p.apply(this.run, this); this.runPerks.push(p.id); }
     this._beginStage();
   }
 
@@ -263,6 +268,13 @@ export class Game {
 
   /** Roguelite: replay the current stage after losing a heart. */
   retryStage() { this._beginStage(); }
+
+  /** Roguelite: reroll the current perk draft (meta "reroll" upgrade). */
+  rerollDraft() {
+    if ((this._draftRerolls || 0) <= 0) return;
+    this._draftRerolls -= 1;
+    this.onPerkDraft?.(this.stage, draftPerks(3), null, this._draftRerolls);
+  }
 
   _beginStage() {
     this.newMatch();            // keeps the current mode ('stages' or 'roguelite')
@@ -322,7 +334,8 @@ export class Game {
       const won = scores[0] && scores[0].isHuman && scores[0].total > 0;
       if (won) {
         this.sound.win();
-        this.onPerkDraft?.(this.stage, draftPerks(3), scores);
+        this._draftRerolls = this.settings.meta?.reroll || 0;
+        this.onPerkDraft?.(this.stage, draftPerks(3), scores, this._draftRerolls);
       } else {
         this.hearts -= 1;
         if (this.hearts > 0) {
@@ -330,7 +343,8 @@ export class Game {
           this.onHeartLost?.(this.stage, this.hearts, scores);
         } else {
           this.sound.detonate();
-          const shards = Math.max(1, (this.stage - 1) * 3 + this.runPerks.length);
+          const boost = 1 + 0.5 * (this.settings.meta?.shardboost || 0);
+          const shards = Math.round(Math.max(1, (this.stage - 1) * 3 + this.runPerks.length) * boost);
           this.onRunOver?.({ stage: this.stage, shards, perks: this.runPerks.length, scores });
         }
       }

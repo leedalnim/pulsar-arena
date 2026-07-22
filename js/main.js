@@ -14,6 +14,7 @@ import { ParticleSystem } from './core/ParticleSystem.js';
 import { Storage } from './core/Storage.js';
 import { Menu } from './ui/Menu.js';
 import { NetPeer } from './net/NetPeer.js';
+import { buyMeta } from './core/meta.js';
 import { STATE } from './core/constants.js';
 
 function boot() {
@@ -58,7 +59,9 @@ function boot() {
     onRoguelite: () => { sound.unlock(); game.startRun(); menu.hide(); },
     onNextStage: () => { game.nextStage(); menu.hide(); },
     onPerkPick: (id) => { game.pickPerk(id); menu.hide(); },
+    onReroll: () => game.rerollDraft(),
     onRetryStage: () => { game.retryStage(); menu.hide(); },
+    onBuyMeta: (id) => { const ok = buyMeta(settings, id); if (ok) Storage.save(settings); return ok; },
     onResume: () => { game.resume(); menu.hide(); },
     onRestart: () => { game.restart(); menu.hide(); },
     onQuit: () => { game.quitToMenu(); menu.show('main'); },
@@ -92,7 +95,7 @@ function boot() {
     menu.show('stage', { stage, scores, best: settings.bestStage });
   };
   // Roguelite run bridges.
-  game.onPerkDraft = (stage, perks) => menu.show('perkdraft', { stage, perks });
+  game.onPerkDraft = (stage, perks, scores, rerolls) => menu.show('perkdraft', { stage, perks, rerolls });
   game.onHeartLost = (stage, hearts) => menu.show('heartlost', { stage, hearts });
   game.onRunOver = (info) => {
     settings.shards = (settings.shards || 0) + info.shards;
