@@ -60,6 +60,11 @@ export class Player extends Entity {
     // Boss elite (stage mode) — buffed + a menacing aura.
     this.isBoss = false;
 
+    // Roguelite run modifiers (1 = none; set by Game._applyRunMods).
+    this.runRadiusMul = 1;
+    this.runWaveMul = 1;
+    this.runCostMul = 1;
+
     // Abilities / timers.
     this.coreType = 'standard';
     this.dashTimer = 0;          // >0 while dashing
@@ -218,19 +223,26 @@ export class Player extends Entity {
 
   /** Attempt to place an Energy Core on the current tile. */
   deployCore(game) {
-    let type = CORE_TYPES[this.coreType];
-    // OVERCHARGE item: cheaper, larger pulses.
-    const cost = this.overcharged
-      ? Math.round(type.cost * ITEMS.overcharge.costMul) : type.cost;
+    const type = CORE_TYPES[this.coreType];
+    // Cost: run "efficient" mods + OVERCHARGE item.
+    let cost = type.cost * this.runCostMul;
+    if (this.overcharged) cost *= ITEMS.overcharge.costMul;
+    cost = Math.round(cost);
     if (this.energy < cost) return false;
     const { c, r } = game.grid.toTile(this.x, this.y);
     if (game.grid.get(c, r) !== TILE.FLOOR) return false;
     if (game.coreAt(c, r)) return false;              // one core per tile
-    if (this.overcharged) type = { ...type, radius: type.radius * ITEMS.overcharge.radiusMul };
-    if (this.rapid) type = { ...type, fuse: type.fuse * ITEMS.rapidcore.fuseMul };
+    // Effective core from run + item modifiers.
+    const radiusMul = this.runRadiusMul * (this.overcharged ? ITEMS.overcharge.radiusMul : 1);
+    const eff = {
+      ...type,
+      radius: type.radius * radiusMul,
+      waveSpeed: type.waveSpeed * this.runWaveMul,
+      fuse: type.fuse * (this.rapid ? ITEMS.rapidcore.fuseMul : 1),
+    };
     const w = game.grid.toWorld(c, r);
     this.energy -= cost;
-    game.deployCore(w.x, w.y, type, this.factionIndex, this.color);
+    game.deployCore(w.x, w.y, eff, this.factionIndex, this.color);
     game.sound.deploy();
     return true;
   }

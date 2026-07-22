@@ -26,6 +26,7 @@ import { Crystal } from '../entities/Crystal.js';
 import { Item } from '../entities/Item.js';
 import { HUD } from '../ui/HUD.js';
 import * as NetSync from '../net/NetSync.js';
+import { freshRun, draftPerks, perkById } from './perks.js';
 
 export class Game {
   constructor(canvas, settings, sound, input, particles) {
@@ -60,12 +61,20 @@ export class Game {
     this.humans = [];         // 1 (solo) or 2 (P2P host) human players
     this.grid = null;
 
-    // Game mode: 'arena' (single match) | 'stages' (escalating progression).
+    // Game mode: 'arena' | 'stages' | 'roguelite' (run with hearts + perks).
     this.mode = 'arena';
     this.stage = 1;
     this.botAggro = 1;        // bot difficulty multiplier (scaled by stage)
     this.isBossStage = false; // every 5th stage is a 1v1 vs an elite boss
     this._introTimer = 0;     // >0 while the "STAGE n" intro banner shows
+
+    // Roguelite run state.
+    this.hearts = 3;
+    this.runPerks = [];       // ids of perks drafted this run (stacked into run)
+    this.run = freshRun();    // run modifier object (see perks.js)
+    this.onPerkDraft = null;  // main.js -> perk draft screen
+    this.onHeartLost = null;  // main.js -> "heart lost, retry" screen
+    this.onRunOver = null;    // main.js -> run summary screen
 
     // P2P networking.
     this.netRole = null;      // null (offline) | 'host' | 'client'
@@ -94,7 +103,7 @@ export class Game {
   /** Build a fresh arena and spawn all combatants. */
   newMatch() {
     const isHost = this.netRole === 'host';
-    const isStages = this.mode === 'stages';
+    const isStages = this.mode === 'stages' || this.mode === 'roguelite';
     const humanCount = isHost ? 2 : 1;
 
     // Stage mode ramps difficulty; arena uses the player's settings.
@@ -132,6 +141,7 @@ export class Game {
     this.humans = [];
     const humanClass = this.settings.charClass || 'specter';
     this.localPlayer = new Player(spawns[0].x, spawns[0].y, this.factions[0], 0, true, humanClass);
+    if (this.mode === 'roguelite') this._applyRunMods(this.localPlayer);
     this.players.push(this.localPlayer);
     this.humans.push(this.localPlayer);
     this.remotePlayer = null;
@@ -173,11 +183,14 @@ export class Game {
           this.territory.claim(c + dc, r + dr, p.factionIndex);
     }
 
-    // Stage mode: a guaranteed reward item near the player each stage.
+    // Stage/roguelite: guaranteed reward item(s) near the player each stage.
     if (isStages) {
-      const def = ITEMS[pick(ITEM_ORDER)];
-      const spot = this._floorNear(this.localPlayer.x, this.localPlayer.y) || this._randomFloor();
-      if (spot) this.items.push(new Item(spot.x, spot.y, def));
+      const extra = this.mode === 'roguelite' ? this.run.startItems : 0;
+      for (let n = 0; n < 1 + extra; n++) {
+        const def = ITEMS[pick(ITEM_ORDER)];
+        const spot = this._floorNear(this.localPlayer.x, this.localPlayer.y) || this._randomFloor();
+        if (spot) this.items.push(new Item(spot.x, spot.y, def));
+      }
     }
 
     this.timeLeft = this._matchDuration;
@@ -185,6 +198,20 @@ export class Game {
     this.camera.shakeEnabled = this.settings.shake;
     const mid = this._humansMid();
     this.camera.snapTo(mid.x, mid.y);
+  }
+
+  /** Apply the roguelite run modifiers (from drafted perks) to the human. */
+  _applyRunMods(p) {
+    const r = this.run;
+    p.speedMul *= r.speedMul;
+    p.regenMul *= r.regenMul;
+    p.maxEnergy *= r.maxEnergyMul;
+    p.energy = p.maxEnergy;
+    p.dashCooldown *= r.dashCdMul;
+    p.shieldTime *= r.shieldTimeMul;
+    p.runRadiusMul = r.radiusMul;
+    p.runWaveMul = r.waveMul;
+    p.runCostMul = r.costMul;
   }
 
   /** Centre point of the human player(s) — the camera focus. */
@@ -211,16 +238,35 @@ export class Game {
     this._beginStage();
   }
 
-  /** Advance to the next stage (called from the interstitial). */
+  /** Begin a roguelite run: 3 hearts, perks drafted between stages. */
+  startRun() {
+    this.mode = 'roguelite';
+    this.stage = 1;
+    this.hearts = 3;
+    this.runPerks = [];
+    this.run = freshRun();
+    this._beginStage();
+  }
+
+  /** Advance to the next stage (called from the interstitial / after a draft). */
   nextStage() {
     this.stage += 1;
     this._beginStage();
   }
 
+  /** Roguelite: apply a drafted perk, then advance. */
+  pickPerk(id) {
+    const perk = perkById(id);
+    if (perk) { perk.apply(this.run, this); this.runPerks.push(id); }
+    this.nextStage();
+  }
+
+  /** Roguelite: replay the current stage after losing a heart. */
+  retryStage() { this._beginStage(); }
+
   _beginStage() {
-    this.mode = 'stages';
-    this.newMatch();
-    this._introTimer = 1.5;      // brief "STAGE n" intro; sim frozen meanwhile
+    this.newMatch();            // keeps the current mode ('stages' or 'roguelite')
+    this._introTimer = 1.5;     // brief "STAGE n" intro; sim frozen meanwhile
     this.state = STATE.PLAYING;
     this.input.flush();
     this.input.setTouchVisible(true);
@@ -246,6 +292,7 @@ export class Game {
       this.onReturnMenu?.();
       return;
     }
+    if (this.mode === 'roguelite') { this.startRun(); return; }
     if (this.mode === 'stages') { this.startStages(); return; }
     this.start();
   }
@@ -268,6 +315,27 @@ export class Game {
     this.input.setTouchVisible(false);
     const scores = this.scores();
     if (this.netRole === 'host' && this.net) this.net.send({ t: 'over', scores });
+
+    // Roguelite: 1st place clears -> perk draft; otherwise lose a heart and
+    // retry, or end the run (banking shards) when out of hearts.
+    if (this.mode === 'roguelite') {
+      const won = scores[0] && scores[0].isHuman && scores[0].total > 0;
+      if (won) {
+        this.sound.win();
+        this.onPerkDraft?.(this.stage, draftPerks(3), scores);
+      } else {
+        this.hearts -= 1;
+        if (this.hearts > 0) {
+          this.sound.hit();
+          this.onHeartLost?.(this.stage, this.hearts, scores);
+        } else {
+          this.sound.detonate();
+          const shards = Math.max(1, (this.stage - 1) * 3 + this.runPerks.length);
+          this.onRunOver?.({ stage: this.stage, shards, perks: this.runPerks.length, scores });
+        }
+      }
+      return;
+    }
 
     // Stage mode: finishing first clears the stage and advances; otherwise the
     // run ends at the stage you reached.
@@ -584,7 +652,8 @@ export class Game {
 
   onShardCollected(shard, player) {
     player.crystals += 1;
-    player.energy = Math.min(player.maxEnergy, player.energy + MATCH.CRYSTAL_ENERGY);
+    const mul = (this.mode === 'roguelite' && player === this.localPlayer) ? this.run.crystalMul : 1;
+    player.energy = Math.min(player.maxEnergy, player.energy + MATCH.CRYSTAL_ENERGY * mul);
     this.particles.sparkle(shard.x, shard.y, player.color, 12);
     if (player.isHuman) this.sound.pickup();
   }

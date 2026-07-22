@@ -89,7 +89,12 @@ the copy-paste step for smoother matchmaking.
   them; score = tiles + crystal shards collected. A top HUD bar shows each
   faction's live share and a crown marks the current leader.
 - **AI bots** — a SEEK / HUNT / FLEE state machine that farms crystals, presses
-  attacks and dodges pulses (dashing / shielding to escape).
+  attacks and dodges pulses (dashing / shielding to escape). Bots un-wedge
+  themselves when stuck on walls/corners.
+- **Game modes** — Arena (single match), Stage Mode (endless, boss every 5th
+  stage), Roguelike (a run with 3 hearts: clear a stage → draft one of three
+  stacking perks; lose → spend a heart; out of hearts ends the run and banks
+  shards), and Online 1v1 (P2P).
 - **Feedback** — pooled particle effects, decaying camera shake, detonation
   light-flashes, a cinematic vignette, contact shadows and bevelled floor
   panels, and a fully procedural Web Audio sound manager.

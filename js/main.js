@@ -55,7 +55,10 @@ function boot() {
   const menu = new Menu(overlay, {
     onStart: () => { sound.unlock(); game.start(); menu.hide(); },
     onStages: () => { sound.unlock(); game.startStages(); menu.hide(); },
+    onRoguelite: () => { sound.unlock(); game.startRun(); menu.hide(); },
     onNextStage: () => { game.nextStage(); menu.hide(); },
+    onPerkPick: (id) => { game.pickPerk(id); menu.hide(); },
+    onRetryStage: () => { game.retryStage(); menu.hide(); },
     onResume: () => { game.resume(); menu.hide(); },
     onRestart: () => { game.restart(); menu.hide(); },
     onQuit: () => { game.quitToMenu(); menu.show('main'); },
@@ -87,6 +90,14 @@ function boot() {
     settings.bestStage = Math.max(settings.bestStage || 0, stage);
     Storage.save(settings);
     menu.show('stage', { stage, scores, best: settings.bestStage });
+  };
+  // Roguelite run bridges.
+  game.onPerkDraft = (stage, perks) => menu.show('perkdraft', { stage, perks });
+  game.onHeartLost = (stage, hearts) => menu.show('heartlost', { stage, hearts });
+  game.onRunOver = (info) => {
+    settings.shards = (settings.shards || 0) + info.shards;
+    Storage.save(settings);
+    menu.show('runover', { ...info, total: settings.shards });
   };
   game.onPauseRequested = () => menu.show('pause');
   game.onReturnMenu = () => menu.show('main');

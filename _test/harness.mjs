@@ -228,6 +228,30 @@ const cpx = clientGame.localPlayer.x;
 clientGame._predictLocal(1 / 60, { move: { x: 1, y: 0 } });
 console.assert(clientGame.localPlayer.x >= cpx, 'client prediction advances the local drone');
 
+// --- Roguelite run: hearts + perk draft + run modifiers ---
+const rg = new Game(new CanvasStub(), { ...Storage.load(), sfx: false, botCount: 3, duration: 30 }, sound, noInput, new ParticleSystem());
+let draftPerksArr = null;
+rg.onPerkDraft = (stage, perks) => { draftPerksArr = perks; };
+rg.onHeartLost = () => {}; rg.onRunOver = () => {}; rg.onPauseRequested = () => {};
+rg.resize(1280, 720, 1);
+rg.startRun();
+console.assert(rg.mode === 'roguelite' && rg.hearts === 3 && rg.stage === 1, 'run starts: roguelite, 3 hearts, stage 1');
+// Clear stage 1 -> a draft of 3 perks.
+rg._introTimer = 0; rg.localPlayer.crystals = 60;
+rg.timeLeft = 0.1; rg.update(0.2);
+console.assert(draftPerksArr && draftPerksArr.length === 3, 'clearing offers 3 perks');
+// Pick a perk -> it advances a stage and records/stacks the perk.
+rg.pickPerk(draftPerksArr[0].id);
+console.assert(rg.stage === 2 && rg.runPerks.length === 1, 'picking a perk advances + records it');
+console.assert(rg.localPlayer.runRadiusMul >= 1, 'run modifiers reach the player');
+// Lose stage 2 (a bot dominates) -> lose a heart.
+rg._introTimer = 0; rg.localPlayer.crystals = 0;
+const rgBot = rg.players.find((p) => !p.isHuman); if (rgBot) rgBot.crystals = 90;
+const heartsBefore = rg.hearts;
+rg.timeLeft = 0.1; rg.update(0.2);
+console.assert(rg.hearts === heartsBefore - 1, 'losing a stage costs a heart');
+console.log('roguelite: hearts', rg.hearts, '| perks', rg.runPerks.length, '| stage', rg.stage);
+
 // Player name shows up in the scoreboard for the human.
 game.settings.playerName = 'HERO';
 console.assert(game.scores().some((s) => s.isHuman && s.name === 'HERO'), 'player name used in scores');

@@ -208,7 +208,7 @@ export class HUD {
 
   /** Stage / boss indicator under the timer (stage mode only). */
   _stageLabel(ctx, game, W) {
-    if (game.mode !== 'stages') return;
+    if (game.mode !== 'stages' && game.mode !== 'roguelite') return;
     const boss = game.isBossStage;
     const txt = boss ? `⚠ BOSS · STAGE ${game.stage}` : `STAGE ${game.stage}`;
     ctx.font = `700 12px ${this.font}`;
@@ -217,6 +217,14 @@ export class HUD {
     if (boss) { ctx.shadowColor = '#ff5a6a'; ctx.shadowBlur = 10; }
     ctx.fillText(txt, W / 2, 66);
     ctx.shadowBlur = 0;
+    // Roguelite hearts.
+    if (game.mode === 'roguelite') {
+      ctx.font = `700 15px ${this.font}`;
+      ctx.fillStyle = '#ff5a6a';
+      ctx.shadowColor = '#ff5a6a'; ctx.shadowBlur = 8;
+      ctx.fillText('♥ '.repeat(Math.max(0, game.hearts)).trim(), W / 2, 88);
+      ctx.shadowBlur = 0;
+    }
   }
 
   /** Render text with a fixed advance per character (stable, non-jittery). */

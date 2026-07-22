@@ -47,6 +47,9 @@ export class Menu {
     if (screen === 'howto') return this._howtoHTML();
     if (screen === 'pause') return this._pauseHTML();
     if (screen === 'stage') return this._stageHTML(data);
+    if (screen === 'perkdraft') return this._perkHTML(data);
+    if (screen === 'heartlost') return this._heartLostHTML(data);
+    if (screen === 'runover') return this._runOverHTML(data);
     if (screen === 'over') return this._overHTML(data);
     return '';
   }
@@ -70,7 +73,8 @@ export class Menu {
       </div>
       ${this._classPicker(T)}
       <div class="btn-col">
-        <button class="btn btn-primary" data-act="start">${T.enterArena}</button>
+        <button class="btn btn-primary" data-act="roguelite">${T.roguelite || '로그라이크'}${this.settings.shards ? ` · ◆${this.settings.shards}` : ''}</button>
+        <button class="btn" data-act="start">${T.enterArena}</button>
         <button class="btn" data-act="stages">${T.stageMode || '스테이지 모드'}${this.settings.bestStage ? ` · ${(T.bestStage || 'BEST {n}').replace('{n}', this.settings.bestStage)}` : ''}</button>
         <button class="btn" data-act="online">${T.online || '온라인 1v1 (P2P)'}</button>
         <button class="btn" data-act="howto">${T.howToPlay}</button>
@@ -189,6 +193,50 @@ export class Menu {
     </div>`;
   }
 
+  _perkHTML(data) {
+    const T = strings(this.settings.lang);
+    const lang = this.settings.lang;
+    const cards = (data.perks || []).map((p) => `
+      <button class="perk-card" data-perk="${p.id}">
+        <span class="perk-name">${(p.name && (p.name[lang] || p.name.en)) || p.id}</span>
+        <span class="perk-desc">${(p.desc && (p.desc[lang] || p.desc.en)) || ''}</span>
+      </button>`).join('');
+    return `<div class="panel panel-wide">
+      <h2 class="winner" style="--c:#7dffa8">${(T.stageClear || 'STAGE {n} CLEAR!').replace('{n}', data.stage)}</h2>
+      <p class="howto-note">${T.pickPerk || '퍼크를 하나 선택하세요'}</p>
+      <div class="perk-row">${cards}</div>
+    </div>`;
+  }
+
+  _heartLostHTML(data) {
+    const T = strings(this.settings.lang);
+    return `<div class="panel">
+      <h2 class="winner" style="--c:#ff5a6a">${T.defeated || '패배...'}</h2>
+      <p class="stage-reached" style="color:#ff5a6a">${'♥ '.repeat(Math.max(0, data.hearts)).trim() || '—'}</p>
+      <div class="btn-col">
+        <button class="btn btn-primary" data-act="retrystage">${T.retry || '재도전'}</button>
+        <button class="btn btn-ghost" data-act="quit">${T.mainMenu}</button>
+      </div>
+    </div>`;
+  }
+
+  _runOverHTML(data) {
+    const T = strings(this.settings.lang);
+    return `<div class="panel panel-wide">
+      <h2 class="winner" style="--c:#ff9a3c">${T.runOver || '런 종료'}</h2>
+      <div class="results">
+        <div class="result-row"><span class="rname">${(T.stageReached || 'STAGE {n} 도달').replace('{n}', data.stage)}</span><span class="rtotal"></span></div>
+        <div class="result-row"><span class="rname">${T.perksTaken || '획득 퍼크'}</span><span class="rtotal">${data.perks}</span></div>
+        <div class="result-row"><span class="rname">◆ ${T.shardsEarned || '샤드 획득'}</span><span class="rtotal">+${data.shards}</span></div>
+        ${data.total != null ? `<div class="result-row"><span class="rname">◆ ${T.shardsTotal || '보유 샤드'}</span><span class="rtotal">${data.total}</span></div>` : ''}
+      </div>
+      <div class="btn-col">
+        <button class="btn btn-primary" data-act="restart">${T.retry || '다시 도전'}</button>
+        <button class="btn btn-ghost" data-act="quit">${T.mainMenu}</button>
+      </div>
+    </div>`;
+  }
+
   _overHTML(data) {
     const T = strings(this.settings.lang);
     const rows = data.scores.map((s, i) => `
@@ -230,7 +278,9 @@ export class Menu {
           case 'settings': this.show('settings', { from: btn.dataset.from || 'main' }); break;
           case 'online': this.showOnline(); break;
           case 'stages': this.cb.onStages?.(); break;
+          case 'roguelite': this.cb.onRoguelite?.(); break;
           case 'nextstage': this.cb.onNextStage?.(); break;
+          case 'retrystage': this.cb.onRetryStage?.(); break;
           case 'howto': this.show('howto'); break;
           case 'back':
             this.show(btn.dataset.from === 'pause' ? 'pause' : 'main');
@@ -247,6 +297,11 @@ export class Menu {
         this.cb.onSettingsChange(this.settings);
       });
     }
+
+    // Perk draft selection.
+    q('[data-perk]').forEach((card) => {
+      card.addEventListener('click', () => { this.cb.onUI?.(); this.cb.onPerkPick?.(card.dataset.perk); });
+    });
 
     // Drone class selection (main screen).
     q('[data-cls]').forEach((card) => {

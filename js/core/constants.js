@@ -251,6 +251,7 @@ export const DEFAULT_SETTINGS = {
   charClass: 'specter', // chosen drone class for the human player
   bestStage: 0,      // highest stage cleared (stage mode record)
   playerName: '',    // display name for the human player (blank = faction name)
+  shards: 0,         // roguelite meta currency (banked between runs)
 };
 
 /** Game state machine values. */
