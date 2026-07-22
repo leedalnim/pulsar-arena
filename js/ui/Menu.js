@@ -13,6 +13,7 @@
 import { strings, LANG_NAMES } from '../core/i18n.js';
 import { CLASSES, CLASS_ORDER } from '../core/constants.js';
 import { META, metaLevel, metaCostNext } from '../core/meta.js';
+import { ROOMS } from '../core/rooms.js';
 import { portraitSVG } from './DroneArt.js';
 
 export class Menu {
@@ -49,6 +50,7 @@ export class Menu {
     if (screen === 'pause') return this._pauseHTML();
     if (screen === 'stage') return this._stageHTML(data);
     if (screen === 'shop') return this._shopHTML(data);
+    if (screen === 'roomchoice') return this._roomHTML(data);
     if (screen === 'perkdraft') return this._perkHTML(data);
     if (screen === 'heartlost') return this._heartLostHTML(data);
     if (screen === 'runover') return this._runOverHTML(data);
@@ -193,6 +195,22 @@ export class Menu {
         <button class="btn btn-primary" data-act="nextstage">${(T.nextStage || 'STAGE {n} →').replace('{n}', next)}</button>
         <button class="btn btn-ghost" data-act="quit">${T.mainMenu}</button>
       </div>
+    </div>`;
+  }
+
+  _roomHTML(data) {
+    const T = strings(this.settings.lang);
+    const lang = this.settings.lang;
+    const cards = (data.rooms || []).map((id) => {
+      const rm = ROOMS[id];
+      return `<button class="room-card" data-room="${id}" style="--c:${rm.color}">
+        <span class="room-name">${rm.name[lang] || rm.name.en}</span>
+        <span class="room-desc">${rm.desc[lang] || rm.desc.en}</span>
+      </button>`;
+    }).join('');
+    return `<div class="panel panel-wide">
+      <h2>${(T.chooseRoom || 'STAGE {n} · 경로 선택').replace('{n}', data.stage)}</h2>
+      <div class="room-row">${cards}</div>
     </div>`;
   }
 
@@ -344,6 +362,11 @@ export class Menu {
     // Perk draft selection.
     q('[data-perk]').forEach((card) => {
       card.addEventListener('click', () => { this.cb.onUI?.(); this.cb.onPerkPick?.(card.dataset.perk); });
+    });
+
+    // Room branch selection.
+    q('[data-room]').forEach((card) => {
+      card.addEventListener('click', () => { this.cb.onUI?.(); this.cb.onRoomPick?.(card.dataset.room); });
     });
 
     // Drone class selection (main screen).

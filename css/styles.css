@@ -167,6 +167,24 @@ h2 {
 
 .footnote { margin-top: 22px; font-size: 12px; color: var(--ink-dim); letter-spacing: 1px; }
 
+/* ----------------------------- room choice ------------------------------ */
+.room-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin: 10px 0 4px; }
+.room-card {
+  --c: var(--cyan);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  width: 200px; min-height: 110px; padding: 20px 14px; cursor: pointer;
+  background: rgba(10, 16, 30, 0.6);
+  border: 1px solid color-mix(in srgb, var(--c) 30%, transparent); border-radius: 16px;
+  transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease, background .12s ease;
+}
+.room-card:hover {
+  transform: translateY(-3px); border-color: var(--c);
+  background: color-mix(in srgb, var(--c) 10%, rgba(10, 16, 30, 0.6));
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--c) 26%, transparent);
+}
+.room-name { font-family: var(--font-display, inherit); font-size: 20px; letter-spacing: 2px; color: var(--c); }
+.room-desc { font-size: 12.5px; line-height: 1.45; color: var(--ink-dim); }
+
 /* ------------------------------ meta shop ------------------------------- */
 .shop-bal { text-align: center; font-family: var(--font-display, inherit); font-size: 20px; color: #ffd76b; margin: 2px 0 14px; letter-spacing: 1px; }
 .shop-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }

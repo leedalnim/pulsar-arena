@@ -59,6 +59,7 @@ function boot() {
     onRoguelite: () => { sound.unlock(); game.startRun(); menu.hide(); },
     onNextStage: () => { game.nextStage(); menu.hide(); },
     onPerkPick: (id) => { game.pickPerk(id); menu.hide(); },
+    onRoomPick: (type) => { game.enterRoom(type); menu.hide(); },
     onReroll: () => game.rerollDraft(),
     onRetryStage: () => { game.retryStage(); menu.hide(); },
     onBuyMeta: (id) => { const ok = buyMeta(settings, id); if (ok) Storage.save(settings); return ok; },
@@ -96,6 +97,7 @@ function boot() {
   };
   // Roguelite run bridges.
   game.onPerkDraft = (stage, perks, scores, rerolls) => menu.show('perkdraft', { stage, perks, rerolls });
+  game.onRoomChoice = (stage, rooms) => menu.show('roomchoice', { stage, rooms });
   game.onHeartLost = (stage, hearts) => menu.show('heartlost', { stage, hearts });
   game.onRunOver = (info) => {
     settings.shards = (settings.shards || 0) + info.shards;

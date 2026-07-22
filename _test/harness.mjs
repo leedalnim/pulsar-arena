@@ -230,8 +230,9 @@ console.assert(clientGame.localPlayer.x >= cpx, 'client prediction advances the 
 
 // --- Roguelite run: hearts + perk draft + run modifiers ---
 const rg = new Game(new CanvasStub(), { ...Storage.load(), sfx: false, botCount: 3, duration: 30 }, sound, noInput, new ParticleSystem());
-let draftPerksArr = null;
+let draftPerksArr = null, roomOffered = null;
 rg.onPerkDraft = (stage, perks) => { draftPerksArr = perks; };
+rg.onRoomChoice = (s, rooms) => { roomOffered = rooms; rg.enterRoom(rooms[0]); }; // auto-pick a room
 rg.onHeartLost = () => {}; rg.onRunOver = () => {}; rg.onPauseRequested = () => {};
 rg.resize(1280, 720, 1);
 rg.startRun();
@@ -242,6 +243,7 @@ rg.timeLeft = 0.1; rg.update(0.2);
 console.assert(draftPerksArr && draftPerksArr.length === 3, 'clearing offers 3 perks');
 // Pick a perk -> it advances a stage and records/stacks the perk.
 rg.pickPerk(draftPerksArr[0].id);
+console.assert(roomOffered && roomOffered.length === 2, 'a room branch of 2 is offered');
 console.assert(rg.stage === 2 && rg.runPerks.length === 1, 'picking a perk advances + records it');
 console.assert(rg.localPlayer.runRadiusMul >= 1, 'run modifiers reach the player');
 // Lose stage 2 (a bot dominates) -> lose a heart.

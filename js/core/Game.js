@@ -27,6 +27,7 @@ import { Item } from '../entities/Item.js';
 import { HUD } from '../ui/HUD.js';
 import * as NetSync from '../net/NetSync.js';
 import { freshRun, draftPerks, perkById } from './perks.js';
+import { pickTwoRooms } from './rooms.js';
 
 export class Game {
   constructor(canvas, settings, sound, input, particles) {
@@ -72,9 +73,11 @@ export class Game {
     this.hearts = 3;
     this.runPerks = [];       // ids of perks drafted this run (stacked into run)
     this.run = freshRun();    // run modifier object (see perks.js)
+    this.roomType = 'normal'; // current roguelite room (normal | elite | fortune | boss)
     this.onPerkDraft = null;  // main.js -> perk draft screen
     this.onHeartLost = null;  // main.js -> "heart lost, retry" screen
     this.onRunOver = null;    // main.js -> run summary screen
+    this.onRoomChoice = null; // main.js -> room branch pick screen
 
     // P2P networking.
     this.netRole = null;      // null (offline) | 'host' | 'client'
@@ -118,6 +121,11 @@ export class Game {
       botCount = Math.min(3, Math.max(1, this.settings.botCount));
       duration = this.settings.duration;
       this.botAggro = 1;
+    }
+    // Roguelite room modifiers (elite = harder, fortune = easier).
+    if (this.mode === 'roguelite' && !this.isBossStage) {
+      if (this.roomType === 'elite') { this.botAggro *= 1.4; duration = Math.max(40, duration - 10); }
+      else if (this.roomType === 'fortune') { this.botAggro *= 0.8; duration += 15; }
     }
     const factionCount = Math.min(4, humanCount + botCount);
     this._matchDuration = duration;
@@ -185,7 +193,8 @@ export class Game {
 
     // Stage/roguelite: guaranteed reward item(s) near the player each stage.
     if (isStages) {
-      const extra = this.mode === 'roguelite' ? this.run.startItems : 0;
+      const fortune = (this.mode === 'roguelite' && this.roomType === 'fortune') ? 2 : 0;
+      const extra = (this.mode === 'roguelite' ? this.run.startItems : 0) + fortune;
       for (let n = 0; n < 1 + extra; n++) {
         const def = ITEMS[pick(ITEM_ORDER)];
         const spot = this._floorNear(this.localPlayer.x, this.localPlayer.y) || this._randomFloor();
@@ -250,12 +259,24 @@ export class Game {
     // Meta "starting perk": auto-draft some perks into the run.
     const startPerks = draftPerks(meta.startperk || 0);
     for (const p of startPerks) { p.apply(this.run, this); this.runPerks.push(p.id); }
-    this._beginStage();
+    this.roomType = 'normal';
+    this._beginStage();               // stage 1 plays directly (no branch)
   }
 
-  /** Advance to the next stage (called from the interstitial / after a draft). */
+  /** Advance to the next stage; roguelite offers a room branch (except bosses). */
   nextStage() {
     this.stage += 1;
+    if (this.mode === 'roguelite' && this.stage % 5 !== 0) {
+      this.onRoomChoice?.(this.stage, pickTwoRooms());
+    } else {
+      this.roomType = (this.mode === 'roguelite' && this.stage % 5 === 0) ? 'boss' : 'normal';
+      this._beginStage();
+    }
+  }
+
+  /** Roguelite: enter the chosen room type. */
+  enterRoom(type) {
+    this.roomType = type;
     this._beginStage();
   }
 
@@ -269,11 +290,14 @@ export class Game {
   /** Roguelite: replay the current stage after losing a heart. */
   retryStage() { this._beginStage(); }
 
+  /** Perks offered per draft (elite rooms show one more). */
+  _draftCount() { return this.roomType === 'elite' ? 4 : 3; }
+
   /** Roguelite: reroll the current perk draft (meta "reroll" upgrade). */
   rerollDraft() {
     if ((this._draftRerolls || 0) <= 0) return;
     this._draftRerolls -= 1;
-    this.onPerkDraft?.(this.stage, draftPerks(3), null, this._draftRerolls);
+    this.onPerkDraft?.(this.stage, draftPerks(this._draftCount()), null, this._draftRerolls);
   }
 
   _beginStage() {
@@ -335,7 +359,7 @@ export class Game {
       if (won) {
         this.sound.win();
         this._draftRerolls = this.settings.meta?.reroll || 0;
-        this.onPerkDraft?.(this.stage, draftPerks(3), scores, this._draftRerolls);
+        this.onPerkDraft?.(this.stage, draftPerks(this._draftCount()), scores, this._draftRerolls);
       } else {
         this.hearts -= 1;
         if (this.hearts > 0) {
