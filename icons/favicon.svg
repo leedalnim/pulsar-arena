@@ -1,0 +1,35 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+ <defs>
+  <radialGradient id="ib" cx="50%" cy="38%" r="78%"><stop offset="0%" stop-color="#17263e"/><stop offset="100%" stop-color="#070b16"/></radialGradient>
+  <clipPath id="ic"><rect width="512" height="512" rx="112"/></clipPath>
+ </defs>
+ <g clip-path="url(#ic)">
+  <rect width="512" height="512" fill="url(#ib)"/>
+  <g transform="translate(256,306) scale(1.72)">
+   <defs>
+    <filter id="g_specter" x="-90%" y="-90%" width="280%" height="280%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="sf_specter" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="7"/></filter>
+    <radialGradient id="bv_specter" cx="38%" cy="26%" r="84%"><stop offset="0%" stop-color="#eef6ff"/><stop offset="46%" stop-color="#c3d2e6"/><stop offset="100%" stop-color="#3c4a63"/></radialGradient>
+    <linearGradient id="rim_specter" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7ff0ff" stop-opacity="0"/><stop offset="78%" stop-color="#7ff0ff" stop-opacity="0"/><stop offset="100%" stop-color="#7ff0ff" stop-opacity=".9"/></linearGradient>
+    <radialGradient id="eye_specter" cx="50%" cy="45%" r="55%"><stop offset="0%" stop-color="#ffffff"/><stop offset="35%" stop-color="#7ff0ff"/><stop offset="100%" stop-color="#3c4a63"/></radialGradient>
+    <radialGradient id="core_specter" cx="50%" cy="45%" r="55%"><stop offset="0%" stop-color="#ffffff"/><stop offset="45%" stop-color="#7ff0ff"/><stop offset="100%" stop-color="#7ff0ff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="visor_specter" cx="50%" cy="35%" r="75%"><stop offset="0%" stop-color="#0b1622"/><stop offset="100%" stop-color="#02060d"/></radialGradient>
+    <linearGradient id="mtl_specter" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#eef6ff"/><stop offset="100%" stop-color="#3c4a63"/></linearGradient>
+  </defs>
+   <ellipse cx="0" cy="150" rx="118" ry="24" fill="#7ff0ff" opacity=".14" filter="url(#sf_specter)"/>
+   <ellipse cx="0" cy="166" rx="84" ry="16" fill="#00040a" opacity=".45" filter="url(#sf_specter)"/>
+   <g filter="url(#g_specter)"><ellipse cx="0" cy="-152" rx="72" ry="22" fill="none" stroke="#7ff0ff" stroke-width="6"/>
+              <ellipse cx="0" cy="-152" rx="72" ry="22" fill="none" stroke="#eaffff" stroke-width="2"/></g>
+   <path d="M-90,-36 Q-92,116 0,140 Q92,116 90,-36 Q88,-146 0,-154 Q-88,-146 -90,-36 Z" fill="url(#bv_specter)"/>
+   <path d="M-90,-36 Q-92,116 0,140 Q92,116 90,-36 Q88,-146 0,-154 Q-88,-146 -90,-36 Z" fill="url(#rim_specter)"/>
+   <ellipse cx="-32" cy="-88" rx="34" ry="22" fill="#ffffff" opacity=".45" filter="url(#sf_specter)"/>
+   <path d="M-84,-24 Q0,10 84,-24" fill="none" stroke="#3c4a63" stroke-width="2" opacity=".4"/>
+   <circle cx="0" cy="42" r="38" fill="url(#core_specter)" filter="url(#g_specter)"/>
+   <circle cx="0" cy="42" r="16" fill="#ffffff" filter="url(#g_specter)"/>
+   <path d="M-66,-92 Q0,-120 66,-92 Q72,-62 54,-42 Q0,-30 -54,-42 Q-72,-62 -66,-92 Z" fill="url(#visor_specter)" stroke="#7ff0ff" stroke-width="2" stroke-opacity=".7"/>
+   <ellipse cx="-27" cy="-77" rx="13" ry="15" fill="url(#eye_specter)" filter="url(#g_specter)"/>
+              <ellipse cx="27" cy="-77" rx="13" ry="15" fill="url(#eye_specter)" filter="url(#g_specter)"/>
+              <circle cx="-31" cy="-83" r="3.5" fill="#fff"/><circle cx="23" cy="-83" r="3.5" fill="#fff"/>
+  </g>
+ </g>
+</svg>

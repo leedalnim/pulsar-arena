@@ -1,0 +1,16 @@
+{
+  "name": "PULSAR — Energy Core Arena",
+  "short_name": "PULSAR",
+  "description": "An original top-down neon arena game: deploy Energy Cores, ride circular pulse waves, claim territory. Play offline.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#060912",
+  "theme_color": "#060912",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
