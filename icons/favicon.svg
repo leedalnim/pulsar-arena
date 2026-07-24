@@ -5,7 +5,7 @@
  </defs>
  <g clip-path="url(#ic)">
   <rect width="512" height="512" fill="url(#ib)"/>
-  <g transform="translate(256,306) scale(1.72)">
+  <g transform="translate(256,344) scale(1.72)">
    <defs>
     <filter id="g_specter" x="-90%" y="-90%" width="280%" height="280%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
     <filter id="sf_specter" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="7"/></filter>
